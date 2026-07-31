@@ -1,0 +1,30 @@
+# 运行时数据(动态,不进 git)
+runtime/
+*.log
+*.pyc
+__pycache__/
+.DS_Store
+.venv/
+node_modules/
+
+# 临时 / 备份
+*.BAK-*
+*.BEFORE-*
+*.tmp
+*.bak
+*~
+
+# 敏感(本地配置,真值不进 git)
+.env
+*.local.yaml
+holdings.json
+holdings*.json
+*.pickle
+
+# 飞书 / 系统
+*.webloc
+.Trash/
+
+# 回测数据(动态)
+runtime/picks/backtest/
+runtime/logs/research_archive/

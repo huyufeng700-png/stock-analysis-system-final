@@ -1,0 +1,29 @@
+# 10_配置/chat_ids.yaml
+# 飞书群 ID 集中管理
+# 真值在 ~/.hermes/.env,这里只放结构说明 + 用途
+
+feishu:
+  home:           # 主控机小胡瓜的家
+    chat_id: oc_4515237afd69b15b032c7df636d90e58
+    name: "Home"
+    purpose: "所有 cron 推送默认目标"
+  spider_daily:   # 蜘蛛网选股日报
+    chat_id: null  # TODO: 待确认(可能跟 home 同)
+    name: "Spider 选股日报"
+    purpose: "15:00 蜘蛛网选股结果"
+  holdings_pm:    # 持仓总结
+    chat_id: null  # TODO: 待确认
+    name: "持仓总结"
+    purpose: "18:00 持仓总结"
+  oncall:         # On-call 健康度报警
+    chat_id: null  # TODO: 待确认
+    name: "On-call"
+    purpose: "P0/P1 故障实时报警"
+  collab_test:    # 跨机协作测试
+    chat_id: null  # TODO: 待确认
+    name: "Collab Test"
+    purpose: "Mac ⇄ Win 跨机测试"
+
+# 同步规则
+sync_rule: "改 ~/.hermes/.env 后,人工更新本文件"
+updated: 2026-07-31

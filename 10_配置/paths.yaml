@@ -1,0 +1,44 @@
+# 10_配置/paths.yaml
+# 所有路径单一来源 — 改这里 = 改所有引用
+
+paths:
+  # 知识库根
+  kb_root: ~/Documents/股票分析知识库
+
+  # 运行时(动态数据)
+  runtime: ~/Documents/股票分析知识库/runtime
+  runtime_holdings: ~/Documents/股票分析知识库/runtime/holdings
+  runtime_picks: ~/Documents/股票分析知识库/runtime/picks
+  runtime_sentiment: ~/Documents/股票分析知识库/runtime/sentiment
+  runtime_logs: ~/Documents/股票分析知识库/runtime/logs
+  runtime_cache: ~/Documents/股票分析知识库/runtime/cache
+
+  # 策略引擎
+  strategy: ~/Documents/股票分析知识库/01_策略引擎
+  stock_picking: ~/Documents/股票分析知识库/02_选股系统
+  holding_mgmt: ~/Documents/股票分析知识库/03_持仓管理
+  data_collect: ~/Documents/股票分析知识库/04_数据采集
+  utility: ~/Documents/股票分析知识库/05_工具脚本
+  cron_jobs: ~/Documents/股票分析知识库/06_cron任务
+  docs: ~/Documents/股票分析知识库/07_文档记录
+  archive: ~/Documents/股票分析知识库/08_归档
+  knowledge: ~/Documents/股票分析知识库/09_认知沉淀
+  config: ~/Documents/股票分析知识库/10_配置
+  templates: ~/Documents/股票分析知识库/11_模板
+  scripts: ~/Documents/股票分析知识库/scripts
+
+  # 跨机
+  win_ollama: http://192.168.1.2:11434
+  win_comfyui: http://192.168.1.2:8188
+
+  # Hermes
+  hermes_home: ~/.hermes
+  hermes_skills: ~/.hermes/skills
+  hermes_memory: ~/.hermes/MEMORY.md
+  hermes_user: ~/.hermes/USER.md
+  hermes_env: ~/.hermes/.env
+  cron_output: ~/.hermes/cron/output
+
+# 同步规则
+sync_rule: "改这里 + 同步改 Makefile / cron job workdir / 各脚本硬编码路径"
+updated: 2026-07-31

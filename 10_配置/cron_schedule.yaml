@@ -1,0 +1,149 @@
+# 10_配置/cron_schedule.yaml
+# 11 个 cron job 的集中配置(单一来源)
+# 改这里 = 改 Hermes 调度器(用 hermes-tools / cronjob action=update 同步)
+# 注意:这是"备份"配置,实际生效仍在 Hermes 调度器
+# 同步频率:每次 cron job 新增/修改后,人工更新本文件
+
+version: 1.0
+updated: 2026-07-31
+
+# ============ 时段分组(避免 18:00 持仓总结 cron 窗) ============
+groups:
+  morning:      # 盘前 + 开盘
+    - 7am-morning
+    - 9am-quant-daily
+    - 10am-holding
+  midday:       # 午间 + 午盘
+    - 1455-eastmoney
+    - 15h-spider
+    - 1505-market-review
+    - 16h-accuracy
+  evening:      # 收盘后
+    - 18h-holdings-summary
+  monitoring:   # 周边监控
+    - stock-monitor
+    - stock-heartbeat
+    - alert-monitor
+    - oncall-15min
+  maintenance:  # 维护
+    - 2am-nightly-optimize
+
+# ============ 主力(8 个) ============
+jobs:
+  - id: 7am-morning
+    name: "📻 7am A股晨报"
+    schedule: "0 7 * * 1-5"
+    workdir: "~/Documents/股票分析知识库"
+    script: null
+    prompt_file: "06_cron任务/cron_7am_premarket_fetch.py"  # 嵌入式 prompt
+    skills: [quant-trading-workflow, lark-calendar]
+    deliver: local
+
+  - id: 9am-quant-daily
+    name: "小胡瓜量化日报"
+    schedule: "0 9 * * 1-5"
+    workdir: "~/Documents/股票分析知识库"
+    script: null
+    skills: [lark-im, xiaohugua-strategy-router]
+    deliver: local
+
+  - id: 10am-holding
+    name: "📊 10:00 盘中持仓"
+    schedule: "0 10 * * 1-5"
+    workdir: "~/Documents/股票分析知识库"
+    script: null
+    skills: [quant-trading-workflow]
+    deliver: local
+
+  - id: 1455-eastmoney
+    name: "东方财富收盘分析"
+    schedule: "55 14 * * 1-5"
+    workdir: null
+    script: null
+    skills: [quant-trading-workflow, xiaohugua-strategy-router]
+    deliver: local
+
+  - id: 15h-spider
+    name: "🕷️ 蜘蛛网选股日报"
+    schedule: "0 15 * * 1-5"
+    workdir: "~/Documents/股票分析知识库"
+    script: "02_选股系统/蜘蛛网4.3_量化选股.py"
+    skills: null
+    deliver: local
+
+  - id: 1505-market-review
+    name: "📊 收盘复盘"
+    schedule: "5 15 * * 1-5"
+    workdir: "~/Documents/股票分析知识库"
+    script: "06_cron任务/market_review.py"
+    skills: null
+    deliver: local
+
+  - id: 16h-accuracy
+    name: "📊 准确率验证"
+    schedule: "0 16 * * 1-5"
+    workdir: "~/Documents/股票分析知识库"
+    script: "06_cron任务/accuracy_tracker.py"
+    skills: null
+    deliver: local
+
+  - id: 18h-holdings-summary
+    name: "📊 18:00 持仓总结"
+    schedule: "0 18 * * 1-5"
+    workdir: "~/Documents/股票分析知识库"
+    script: null
+    skills: [quant-trading-workflow]
+    deliver: local
+
+# ============ 周边监控(3 个) ============
+  - id: stock-monitor
+    name: "📊 推荐股票走势监控"
+    schedule: "5,35 9-15 * * 1-5"
+    workdir: "~/Documents/股票分析知识库"
+    script: "scripts/stock_monitor.py"
+    no_agent: true
+    deliver: local
+
+  - id: stock-heartbeat
+    name: "🎯 股票机会心跳"
+    schedule: "30,0 9-11,13-15 * * 1-5"
+    workdir: "~/Documents/股票分析知识库"
+    script: "scripts/stock_heartbeat.py"
+    no_agent: true
+    deliver: local
+
+  - id: alert-monitor
+    name: "📢 股票告警监控"
+    schedule: "5,35 9-11,13-15 * * 1-5"
+    workdir: "~/Documents/股票分析知识库"
+    script: "scripts/alert_monitor.py"
+    no_agent: true
+    deliver: local
+
+# ============ 维护(1 个) ============
+  - id: oncall-15min
+    name: "🤺 On-call 健康度 15min"
+    schedule: "*/15 8-22 * * 1-5"
+    workdir: "~/Documents/股票分析知识库"
+    script: null
+    skills: [xiaohugua-system-check]
+    deliver: local
+
+  - id: 2am-nightly-optimize
+    name: "凌晨 2 点自主优化"
+    schedule: "0 2 * * *"
+    workdir: null
+    script: null
+    skills: null
+    deliver: feishu
+
+# ============ 重构期临时禁用(2026-07-31 起) ============
+disabled_until: "2026-08-10"
+reason: "全栈重构 P3/P4/P5 期,避免 cron 跑挂影响验证"
+resume_schedule:
+  day1_0803: [7am-morning, 9am-quant-daily]
+  day2_0804: [10am-holding, 1455-eastmoney]
+  day3_0805: [15h-spider, 1505-market-review]
+  day4_0806: [16h-accuracy, 18h-holdings-summary]
+  day5_0807: [stock-monitor, stock-heartbeat, alert-monitor]
+  day6_0808+: [oncall-15min, 2am-nightly-optimize]  # 观察后再开
