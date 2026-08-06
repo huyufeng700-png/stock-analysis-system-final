@@ -31,9 +31,13 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 # ============== 路径常量 ==============
+# v4.18 (2026-08-05 凌晨 P0 修复): 桌面已迁到 ~/Documents/股票分析知识库/
+# BASE 优先指向新路径, 兜底旧 Desktop 路径 (向后兼容未迁移数据)
 HOME = Path.home()
-BASE = HOME / "Desktop" / "蜘蛛网计划"
-SCRIPTS = BASE / "scripts"
+KB_ROOT = HOME / "Documents" / "股票分析知识库"   # 知识库根 (v4.18 新)
+BASE = KB_ROOT                                     # 主路径: 知识库根
+LEGACY_BASE = HOME / "Desktop" / "蜘蛛网计划"      # 兜底: 旧桌面路径
+SCRIPTS = KB_ROOT / "scripts"
 CRON_JOBS = HOME / ".hermes" / "cron" / "jobs.json"
 
 # 数据源端点 (与 fallback_pool.py 对齐)
