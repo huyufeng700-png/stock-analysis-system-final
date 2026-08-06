@@ -9,6 +9,12 @@ paths:
   runtime: ~/Documents/股票分析知识库/runtime
   runtime_holdings: ~/Documents/股票分析知识库/runtime/holdings
   runtime_picks: ~/Documents/股票分析知识库/runtime/picks
+
+  # 回测产物 (backtest_delta.py 实际写盘位置, 8/6 路径校准生效)
+  backtest_dir: ~/Documents/股票分析知识库/runtime/picks/backtest
+  backtest_archive_dir: ~/Documents/股票分析知识库/runtime/picks/backtest/archive
+  # ⚠️ 反模式 — 8/4 迁移前老路径, 8/6 watchdog prompt v1.3 已废弃, 保留标记防回潮
+  legacy_backtest_history_dir_DO_NOT_USE: ~/Documents/股票分析知识库/scripts/backtest_history
   runtime_sentiment: ~/Documents/股票分析知识库/runtime/sentiment
   runtime_logs: ~/Documents/股票分析知识库/runtime/logs
   runtime_cache: ~/Documents/股票分析知识库/runtime/cache
@@ -40,5 +46,5 @@ paths:
   cron_output: ~/.hermes/cron/output
 
 # 同步规则
-sync_rule: "改这里 + 同步改 Makefile / cron job workdir / 各脚本硬编码路径"
-updated: 2026-07-31
+sync_rule: "改这里 + 同步改 Makefile / cron job workdir / 各脚本硬编码路径 / cron prompt 验证步骤 (8/6 实战坑 #67-甲 + 8/6 backtest depth-2 坑)"
+updated: 2026-08-06
