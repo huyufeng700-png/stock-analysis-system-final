@@ -26,6 +26,28 @@ KLINE_POOL = FallbackPool()
 # ==================== P0-013 辅助: 板块分类 + 历史推荐聚合 ====================
 # 复用 scripts/sector_concentration.py 已有逻辑,避免双维护
 
+def fetch_eastmoney_flow(codes):
+    """东方财富资金流向：返回 {code: main_net_inflow}，失败降级为{}"""
+    out = {}
+    if not codes:
+        return out
+    for mkt, code in codes[:20]:
+        secid = f"{'0' if mkt=='sz' else '1'}.{code}"
+        u = f"https://push2.eastmoney.com/api/qt/stock/fflow/daykline/get?secid={secid}&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57&lmt=1"
+        try:
+            req = urllib.request.Request(u, headers={'User-Agent':'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                raw = json.loads(resp.read().decode())
+            klines = (((raw or {}).get('data') or {}).get('klines') or [])
+            if klines:
+                parts = klines[-1].split(',')
+                # 字段顺序: date,主力净流入,小单净流入,中单净流入,大单净流入,超大单净流入,收盘价
+                main_net = float(parts[1]) if len(parts) > 1 else 0.0
+                out[code] = main_net
+        except Exception:
+            pass
+    return out
+
 _SECTOR_KEYWORDS = {
     "银行": ["银行", "工商", "建设", "农业", "招商", "兴业", "浦发", "交通"],
     "券商": ["证券", "华泰", "国泰", "中信"],
@@ -34,13 +56,23 @@ _SECTOR_KEYWORDS = {
     "新能源": ["核电", "水电"],
 }
 
+_SECTOR_MAP_PATH = os.path.join(os.path.dirname(OUTPUT_DIR.rstrip('/')), '..', '10_配置', 'sector_map.json')
+_SECTOR_MAP = {}
+if os.path.exists(_SECTOR_MAP_PATH):
+    try:
+        with open(_SECTOR_MAP_PATH, 'r', encoding='utf-8') as _f:
+            _SECTOR_MAP = json.load(_f).get('map', {})
+    except Exception:
+        pass
 
 def classify_sector(name: str) -> str:
-    """根据股票名称关键词推断板块 (P0-013 用)。"""
+    """根据股票名称关键词+映射表推断板块。"""
+    if not name:
+        return "其他"
     for sector, kws in _SECTOR_KEYWORDS.items():
         if any(k in name for k in kws):
             return sector
-    return "其他"
+    return _SECTOR_MAP.get(name, "其他")
 
 
 def _load_top5_history(days: int = 10) -> dict:
@@ -207,6 +239,64 @@ def screen_stocks():
     base = [s for s in base if 'ST' not in s['name'] and '退' not in s['name']]
     print(f"   基础过滤后: {len(base)} 只")
     
+    # 加载回测黑名单 (持续亏损标的)
+    blacklist_path = os.path.join(os.path.dirname(OUTPUT_DIR.rstrip('/')), '..', '10_配置', 'backtest-blacklist.json')
+    blacklist_codes = set()
+    if os.path.exists(blacklist_path):
+        try:
+            with open(blacklist_path, 'r', encoding='utf-8') as f:
+                bl = json.load(f)
+                blacklist_codes = set(bl.get('codes', []))
+            if blacklist_codes:
+                print(f"   🚫 回测黑名单: {len(blacklist_codes)} 只")
+        except Exception:
+            pass
+    
+    # 大盘趋势过滤
+    market_filter = None
+    try:
+        idx_rows = KLINE_POOL.get_kline('sh000001', 240, 60)
+        if idx_rows:
+            idx_df = pd.DataFrame(idx_rows)
+            for col in ['open','close','high','low','volume']:
+                if col in idx_df.columns:
+                    idx_df[col] = pd.to_numeric(idx_df[col], errors='coerce')
+            idx_df = calculate_indicators(idx_df)
+            if idx_df is not None and len(idx_df) > 20:
+                idx_last = idx_df.iloc[-1]
+                ma60_val = idx_df['close'].iloc[-60:].mean() if len(idx_df) >= 60 else idx_df['close'].mean()
+                bull_market = bool(idx_last['close'] > ma60_val * 0.93 and (idx_last['dif'] > idx_last['dea'] or idx_last['macd'] > 0))
+                if not bull_market:
+                    market_filter = 'bearish'
+                    print(f"   ⚠️ 大盘偏弱 (close={idx_last['close']}, macd={idx_last['macd']:.2f})，仅保留防御型+高评分")
+    except Exception as e:
+        print(f"   ⚠️ 大盘判断异常: {e}")
+    
+    # 板块轮动过滤：计算强势板块 top3
+    _SECTOR_TOP3 = set()
+    try:
+        sector_scores = {}
+        for s in base:
+            sec = s.get('sector') or classify_sector(s.get('name', ''))
+            sector_scores.setdefault(sec, []).append(s.get('change_pct', 0) or 0)
+        avg_by_sector = {sec: sum(v)/len(v) for sec, v in sector_scores.items() if v}
+        ranked = sorted(avg_by_sector.items(), key=lambda x: x[1], reverse=True)[:3]
+        _SECTOR_TOP3 = {sec for sec, _ in ranked}
+        print(f"   🏆 强势板块 TOP3: {', '.join(_SECTOR_TOP3) if _SECTOR_TOP3 else '无'}")
+    except Exception as e:
+        print(f"   ⚠️ 板块轮动判断异常: {e}")
+    
+    # 资金流过滤：东方财富主力净流入（当前网络异常降级为空）
+    money_flow = {}
+    try:
+        money_flow = fetch_eastmoney_flow(stocks)
+        if money_flow:
+            print(f"   💰 主力净流入样本: {sum(1 for v in money_flow.values() if v and v > 0)}/{len(money_flow)} 正流入")
+        else:
+            print(f"   ⚠️ 资金流数据空（网络/接口异常），跳过资金流过滤")
+    except Exception as e:
+        print(f"   ⚠️ 资金流获取异常: {e}")
+    
     results = []
     # P0-013 修复 (2026-07-03): 历史推荐聚合, 给 cnt_in_top5 / days_in_top5 喂数
     history_stats = _load_top5_history(days=10)
@@ -234,6 +324,9 @@ def screen_stocks():
         stock['days_in_top5'] = h['days']
         
         score = 0
+        if code in blacklist_codes:
+            # 持续亏损标的直接过滤
+            continue
         if latest['ema5'] > latest['ema10'] > latest['ema20']: score += 2
         if latest['close'] > latest['ema20']: score += 1
         if latest['dif'] > latest['dea'] and prev['dif'] <= prev['dea']: score += 2
@@ -255,6 +348,24 @@ def screen_stocks():
         # P2-002: 防止连续推荐加分 (P0-013: days_in_top5 现在来自历史 json)
         if stock.get('days_in_top5', 0) >= 3:
             score -= 0.5
+        # 板块分散度惩罚：同一板块在当次结果中占比过高时扣分
+        sector_counts = {}
+        for _s in results:
+            sector_counts[_s.get('sector', '其他')] = sector_counts.get(_s.get('sector', '其他'), 0) + 1
+        current_sector = stock.get('sector', '其他')
+        if sector_counts.get(current_sector, 0) >= 4:
+            score -= 1
+        
+        # 板块轮动过滤：强势板块优先，非强势板块降权但不直接淘汰
+        if _SECTOR_TOP3 and current_sector not in _SECTOR_TOP3:
+            score -= 2
+        
+        # 资金流过滤：主力净流入为负扣分，为正加分
+        flow = money_flow.get(code, 0)
+        if flow < 0:
+            score -= 1
+        elif flow > 0:
+            score += 1
         # ===== v5 end =====
 
         atr = latest['atr'] if not pd.isna(latest['atr']) else stock['price'] * 0.02
@@ -276,6 +387,19 @@ def screen_stocks():
                 'cnt_in_top5': stock.get('cnt_in_top5', 0),
                 'days_in_top5': stock.get('days_in_top5', 0),
             })
+        elif market_filter == 'bearish' and score >= 5 and rr >= 1.5:
+            # 熊市只放行高评分+高盈亏比
+            results.append({
+                'code': code, 'name': stock['name'], 'price': stock['price'],
+                'change': stock['change_pct'], 'turnover': stock['turnover'] / 10000,
+                'score': score, 'stop_loss': round(stop_loss, 2),
+                'take_profit': round(take_profit, 2), 'risk_reward': round(rr, 2),
+                'atr': round(atr, 2), 'rsi': round(latest['rsi'], 1),
+                'vol_ratio': round(vol_ratio, 2),
+                'sector': stock.get('sector', '其他'),
+                'cnt_in_top5': stock.get('cnt_in_top5', 0),
+                'days_in_top5': stock.get('days_in_top5', 0),
+            })
         
         if (i+1) % 20 == 0:
             print(f"   已扫描 {i+1}/{len(base)}, 命中 {len(results)}")
@@ -287,7 +411,7 @@ def screen_stocks():
 
 # ==================== 回测验证 ====================
 
-def backtest(stock_code, days=90):
+def backtest(stock_code, days=90, *, atr_sl_mult=2.0, atr_tp_mult=3.0, rsi_min=30, rsi_max=70, require_vol_ratio=True, use_trailing_stop=True):
     """单股票回测（90天）"""
     market = 'sh' if stock_code.startswith('6') else 'sz'
     df = fetch_sina_kline(f"{market}{stock_code}", 240, days + 60)
@@ -302,47 +426,55 @@ def backtest(stock_code, days=90):
     position = 0
     entry_price = 0
     entry_idx = 0
+    highest_since_entry = 0.0
     
     for i in range(20, len(df) - 5):
         row = df.iloc[i]
         prev = df.iloc[i-1]
         
         if position == 0:
-            # 五层确认增强：MA20趋势过滤 + MA60大趋势过滤 + 量能确认 + 涨幅过滤
-            if i >= 3:
-                ma20_trend = df.iloc[i]['ema20'] >= df.iloc[i-3]['ema20'] * 0.99
-            else:
-                ma20_trend = True
-            ma60_bull = row.get('close', 0) > df.iloc[max(0,i-60):i+1].get('close', pd.Series()).mean() * 0.93 if len(df) > 60 else True
+            # 与 screen_stocks 核心信号对齐：趋势 + MACD + RSI + 量能
+            trend_ok = row['close'] > row['ema20']
+            macd_ok = (row['dif'] > row['dea'] and prev['dif'] <= prev['dea']) or row['macd'] > 0
+            rsi_ok = rsi_min < row['rsi'] < rsi_max
+            vol_ok = (not require_vol_ratio) or (row.get('vol_ratio', 0) > 1.2)
+            ma60_bull = row['close'] > df.iloc[max(0, i-60):i+1]['close'].mean() * 0.93
             
-            buy = (
-                (row['dif'] > row['dea'] and prev['dif'] <= prev['dea']) and
-                (35 < row['rsi'] < 65) and
-                (row['close'] > row['ema20']) and
-                ma20_trend
-            )
+            buy = trend_ok and macd_ok and rsi_ok and vol_ok and ma60_bull
             if buy:
                 position = 1
                 entry_price = row['close']
                 entry_idx = i
+                highest_since_entry = entry_price
         
         elif position == 1:
-            # ATR动态止损止盈（2xATR止损，3xATR止盈，盈亏比1.5）
+            highest_since_entry = max(highest_since_entry, row['close'])
             atr = row['atr'] if not pd.isna(row['atr']) else entry_price * 0.02
-            stop_loss = entry_price - 2 * atr
-            take_profit = entry_price + 3 * atr
+            stop_loss = entry_price - atr_sl_mult * atr
+            take_profit = entry_price + atr_tp_mult * atr
             
-            sell = (
-                row['close'] <= stop_loss or
-                row['close'] >= take_profit or
-                (row['dif'] < row['dea'] and prev['dif'] >= prev['dea'])
-            )
+            sell = False
+            reason = None
+            if row['close'] <= stop_loss:
+                sell = True
+                reason = 'stop_loss'
+            elif row['close'] >= take_profit:
+                sell = True
+                reason = 'take_profit'
+            elif row['dif'] < row['dea'] and prev['dif'] >= prev['dea']:
+                sell = True
+                reason = 'macd_death'
+            elif use_trailing_stop:
+                trail_stop = highest_since_entry - atr_sl_mult * atr
+                if row['close'] <= trail_stop and (i - entry_idx) >= 3:
+                    sell = True
+                    reason = 'trailing_stop'
             
             if sell:
                 exit_price = row['close']
                 profit_pct = (exit_price / entry_price - 1) * 100
                 hold_days = i - entry_idx
-                trades.append({'profit': profit_pct, 'days': hold_days, 'win': profit_pct > 0})
+                trades.append({'profit': profit_pct, 'days': hold_days, 'win': profit_pct > 0, 'reason': reason})
                 position = 0
     
     if not trades:
@@ -404,8 +536,31 @@ def generate_report(stocks, backtest_results=None):
 
 # ==================== 飞书推送 ====================
 
-def send_to_feishu(report_text, chat_id="oc_ef684ee04be46f9c15054770be144b82"):
-    """发送报告到飞书群"""
+def _load_chat_ids() -> dict:
+    """(2026-08-08 P1 fix) 从 10_配置/chat_ids.yaml 读 chat_id, 禁硬编码"""
+    from pathlib import Path
+    import yaml
+    yaml_path = Path(__file__).resolve().parent.parent / "10_配置" / "chat_ids.yaml"
+    if not yaml_path.exists():
+        return {"home": "oc_4515237afd69b15b032c7df636d90e58", "spider_daily": None}
+    try:
+        d = yaml.safe_load(yaml_path.read_text())
+        return {
+            "home": d.get("feishu", {}).get("home", {}).get("chat_id") or "oc_4515237afd69b15b032c7df636d90e58",
+            "spider_daily": (d.get("feishu", {}).get("spider_daily") or {}).get("chat_id"),
+        }
+    except Exception:
+        return {"home": "oc_4515237afd69b15b032c7df636d90e58", "spider_daily": None}
+
+
+def send_to_feishu(report_text, chat_id=None):
+    """发送报告到飞书群 (chat_id 默认从 chat_ids.yaml 读 spider_daily, None 时静默)"""
+    if chat_id is None:
+        ids = _load_chat_ids()
+        chat_id = ids.get("spider_daily") or ids.get("home")  # spider 未配 → 兜 home
+    if not chat_id:
+        print("⚠️ chat_id 未配置 (10_配置/chat_ids.yaml), 跳过推送")
+        return
     try:
         import json
         data = {

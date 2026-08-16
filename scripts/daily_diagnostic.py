@@ -47,27 +47,42 @@ ENDPOINTS = [
     ("新浪 K线 (历史)",          "https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKlineData?symbol=sz300059&scale=240&datalen=5"),
 ]
 
+# 备用节点 (2026-08-16 加): 主节点失败时按序尝试, 缓解 push2 凌晨间歇故障
+ENDPOINT_FALLBACKS = {
+    "东方财富 push2 (实时)": [
+        "https://push2delay.eastmoney.com/api/qt/clist/get?pn=1&pz=3",
+        "https://push2his.eastmoney.com/api/qt/clist/get?pn=1&pz=3",
+    ],
+}
+
 # ============== 1. 数据源健康度 ==============
 def probe_endpoint(name: str, url: str, timeout: int = 8) -> Dict:
-    """短 UA 探测一个端点,返回 http_code + body 字节数 + 延迟"""
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        t0 = datetime.now()
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = resp.read()
-            dt = (datetime.now() - t0).total_seconds()
-            return {
-                "name": name,
-                "url": url,
-                "http": resp.status,
-                "bytes": len(body),
-                "latency_s": round(dt, 2),
-                "ok": resp.status == 200 and len(body) > 10 and body.strip() not in (b"null", b""),
-            }
-    except urllib.error.HTTPError as e:
-        return {"name": name, "url": url, "http": e.code, "bytes": 0, "latency_s": 0, "ok": False, "err": str(e)}
-    except Exception as e:
-        return {"name": name, "url": url, "http": 0, "bytes": 0, "latency_s": 0, "ok": False, "err": type(e).__name__}
+    """短 UA 探测一个端点; 主节点失败自动试备用节点 (2026-08-16 加固)"""
+    attempts = [url] + ENDPOINT_FALLBACKS.get(name, [])
+    last = None
+    for attempt in attempts:
+        try:
+            req = urllib.request.Request(attempt, headers={"User-Agent": "Mozilla/5.0"})
+            t0 = datetime.now()
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = resp.read()
+                dt = (datetime.now() - t0).total_seconds()
+                r = {
+                    "name": name,
+                    "url": attempt,
+                    "http": resp.status,
+                    "bytes": len(body),
+                    "latency_s": round(dt, 2),
+                    "ok": resp.status == 200 and len(body) > 10 and body.strip() not in (b"null", b""),
+                }
+                if r["ok"]:
+                    return r
+                last = r
+        except urllib.error.HTTPError as e:
+            last = {"name": name, "url": attempt, "http": e.code, "bytes": 0, "latency_s": 0, "ok": False, "err": str(e)}
+        except Exception as e:
+            last = {"name": name, "url": attempt, "http": 0, "bytes": 0, "latency_s": 0, "ok": False, "err": type(e).__name__}
+    return last
 
 
 def diagnose_data_sources() -> Tuple[List[Dict], int, int]:
@@ -96,7 +111,8 @@ def diagnose_cron_silent_failures() -> List[Dict]:
         script = j.get("script")
         if not script:
             continue
-        workdir = j.get("workdir") or str(HOME)
+        # workdir=null 时按 cronjob tool 默认路径 ~/.hermes/scripts/ 找 (2026-08-08 P0 fix)
+        workdir = j.get("workdir") or str(HOME / ".hermes" / "scripts")
         full = Path(workdir) / script
         exists_primary = full.is_file()
         # 智能降级:如果默认 workdir(家目录)找不到,递归搜全盘 (skill §2a)
@@ -104,9 +120,9 @@ def diagnose_cron_silent_failures() -> List[Dict]:
         search_hint = ""
         if not exists_primary:
             try:
-                # 用 timeout 防止 find 卡死
+                # 用 timeout 防止 find 卡死, 同时搜 ~/.hermes/scripts/ + BASE
                 r = subprocess.run(
-                    ["find", str(BASE), "-name", script, "-type", "f"],
+                    ["find", str(HOME / ".hermes" / "scripts"), str(BASE), "-name", script, "-type", "f"],
                     capture_output=True, text=True, timeout=5,
                 )
                 hits = [l for l in r.stdout.strip().split("\n") if l]
@@ -149,36 +165,59 @@ def diagnose_report_gaps(days: int = 5) -> Dict:
     today = datetime.now().date()
     expected = [(today - timedelta(days=i)).strftime("%Y%m%d") for i in range(days)]
 
-    spider_pattern = str(BASE / "蜘蛛网v4.3_*_*.json")
-    yq_pattern = str(BASE / "舆情报告_*.json")
+    # 2026-08-10 v4.20 修复: glob 路径硬编码到 BASE 根, 但真产物在 runtime/picks/
+    # 和 LEGACY_BASE (兼容旧蜘蛛网计划桌面版) 三处合并扫描
+    spider_patterns = [
+        str(BASE / "runtime" / "picks" / "蜘蛛网v4.3_*_*.json"),     # 主路径: 知识库 runtime
+        str(BASE / "蜘蛛网v4.3_*_*.json"),                            # 兼容老旧位置
+        str(LEGACY_BASE / "蜘蛛网v4.3_*_*.json"),                     # 兜底: 旧桌面路径
+    ]
+    # 2026-08-11 v4.21 修复: 舆情真产物在 runtime/sentiment/, 8-10 v4.20 修复漏此路径
+    yq_patterns = [
+        str(BASE / "runtime" / "sentiment" / "舆情报告_*.json"),  # 真路径: news_sentiment_monitor 产物
+        str(BASE / "runtime" / "picks" / "舆情报告_*.json"),      # 兼容老 spider cron 输出
+        str(BASE / "舆情报告_*.json"),                             # 兜底 BASE 根
+        str(LEGACY_BASE / "舆情报告_*.json"),                      # 旧桌面路径
+    ]
+    spider_pattern = spider_patterns[0]  # 保持旧变量语义 (向后兼容下面 .latest)
+    yq_pattern = yq_patterns[0]
 
     spider_dates = set()
-    for f in glob.glob(spider_pattern):
-        # 文件名形如 蜘蛛网v4.3_20260605_1501.json
-        try:
-            parts = Path(f).stem.split("_")
-            spider_dates.add(parts[1])  # 20260605
-        except (IndexError, ValueError):
-            continue
+    for pat in spider_patterns:
+        for f in glob.glob(pat):
+            # 文件名形如 蜘蛛网v4.3_20260605_1501.json
+            try:
+                parts = Path(f).stem.split("_")
+                spider_dates.add(parts[1])  # 20260605
+            except (IndexError, ValueError):
+                continue
 
     yq_dates = set()
-    for f in glob.glob(yq_pattern):
-        # 文件名形如 舆情报告_20260605.json
-        try:
-            stem = Path(f).stem
-            # 取最后 8 位数字
-            tail = stem.split("_")[-1]
-            if len(tail) == 8 and tail.isdigit():
-                yq_dates.add(tail)
-        except (IndexError, ValueError):
-            continue
+    for pat in yq_patterns:
+        for f in glob.glob(pat):
+            # 文件名形如 舆情报告_20260605.json
+            try:
+                stem = Path(f).stem
+                # 取最后 8 位数字
+                tail = stem.split("_")[-1]
+                if len(tail) == 8 and tail.isdigit():
+                    yq_dates.add(tail)
+            except (IndexError, ValueError):
+                continue
 
     missing_spider = [d for d in expected if d not in spider_dates]
     missing_yq = [d for d in expected if d not in yq_dates]
 
     # 最新产物
-    spider_files = sorted(glob.glob(spider_pattern), key=os.path.getmtime, reverse=True)
-    yq_files = sorted(glob.glob(yq_pattern), key=os.path.getmtime, reverse=True)
+    # 2026-08-11 v4.21 修复: latest 必须合并多 patterns, 否则只看到第一个路径的产物
+    spider_files_all: List[str] = []
+    for pat in spider_patterns:
+        spider_files_all.extend(glob.glob(pat))
+    spider_files = sorted(spider_files_all, key=os.path.getmtime, reverse=True)
+    yq_files_all: List[str] = []
+    for pat in yq_patterns:
+        yq_files_all.extend(glob.glob(pat))
+    yq_files = sorted(yq_files_all, key=os.path.getmtime, reverse=True)
 
     return {
         "checked_days": days,
@@ -245,8 +284,14 @@ def run_full_diagnostic() -> Dict:
         err = f" [{r.get('err','')}]" if not r["ok"] else ""
         print(f"  {flag} {r['name']:25s} http={r['http']} bytes={r['bytes']:>5} t={r['latency_s']}s{err}")
     print(f"  小结: {ok}/{total} 可用")
+    # 注 (2026-08-16 凌晨 P0 修复): 实时源 (push2 clist) ≠ K线 fallback 池 (push2his + sina + tencent_kline)
+    # 之前 ok<3 直接套 P0-008 标签是误判, push2 clist 挂时 K线池仍可独立工作
+    # 真正的 K线 fallback 池 0/N 由 kline_fallback_health.py 单独监控
     if ok < total:
-        print(f"  🔴 触发 P0: K线 fallback 池 {ok}/{total} 失败 → 架构性单点 (P0-008)")
+        failed = [r['name'] for r in src if not r['ok']]
+        print(f"  ⚠️ 实时源降级 ({ok}/{total}): {', '.join(failed)} → K线池独立监控 (kline_fallback_health.py), 不触发 P0-008")
+        if ok == 0:
+            print(f"  🔴 触发 P0: 实时源全挂 → 行情监控断流")
 
     # 2. Cron
     print("\n[2/4] ⏰ Cron 静默失败检测 ...")
