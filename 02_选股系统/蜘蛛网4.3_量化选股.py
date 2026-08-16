@@ -645,6 +645,15 @@ def main():
     if report:
         send_to_feishu(report)
 
+    # 6. 新老股票池追踪 (2026-08-16 加; 失败不影响主流程)
+    try:
+        import subprocess, os as _os
+        _tracker = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', 'scripts', 'universe_tracking.py')
+        subprocess.run([sys.executable, _tracker], timeout=60,
+                       capture_output=True, cwd=_os.path.dirname(_os.path.abspath(__file__)))
+    except Exception:
+        pass
+
     return stocks, backtest_results
 
 
