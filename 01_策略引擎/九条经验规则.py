@@ -214,8 +214,9 @@ class NineRuleEngine:
     signal: BUY / HOLD / SELL
     """
     
-    def __init__(self):
+    def __init__(self, stop_loss_pct: float = -8.0):
         self.cache = {}
+        self.stop_loss_pct = stop_loss_pct
     
     # ---------- 经验1: 本金不到10万+短线 → 没把握就歇着 ----------
     def rule1_market_timing(self, code: str, klines: List[Dict]) -> Tuple[float, str, str]:
@@ -398,8 +399,8 @@ class NineRuleEngine:
                 daily_changes.append(abs((k['close'] - k['open']) / k['open'] * 100))
         avg_daily_change = sum(daily_changes) / len(daily_changes) if daily_changes else 5
         
-        # 量能 vs 均量线（用最近20日均量代替135，数据有限）
-        vol_ma20 = calc_ma(volumes, 20)
+        # 量能 vs 均量线（经验4要求135日）
+        vol_ma135 = calc_volume_ma(volumes, 135)
         recent_vol_avg = avg_volume_recent(volumes, 5)
         
         # 价格位置：近20日高低点
@@ -410,15 +411,15 @@ class NineRuleEngine:
         # 综合判断
         small_daily = avg_daily_change < 3  # 小阴小阳
         narrow_range = range_pct < 8         # 震荡区间窄
-        low_volume = (vol_ma20 and recent_vol_avg and 
-                      recent_vol_avg < vol_ma20 * 0.8)  # 缩量
+        low_volume = (vol_ma135 and recent_vol_avg and 
+                      recent_vol_avg < vol_ma135 * 0.8)  # 缩量
         low_position = price_position < 0.4   # 低位
         
         score = 0
         signal = "HOLD"
         reason = ""
         
-        conditions_met = sum([small_daily, narrow_range, low_volume, low_position])
+        conditions_met = sum([1 if small_daily else 0, 1 if narrow_range else 0, 1 if low_volume else 0, 1 if low_position else 0])
         
         if conditions_met >= 3:
             score = 8
@@ -609,10 +610,10 @@ class NineRuleEngine:
                 score = -3
                 signal = "SELL"
                 reason = f"💰盈利{profit_pct:.1f}%≥8%，开始减仓守住利润"
-            elif profit_pct <= -5:
+            elif profit_pct <= self.stop_loss_pct:
                 score = -8
                 signal = "SELL"
-                reason = f"🛑严格止损！亏损{profit_pct:.1f}%≥5%，执行止损"
+                reason = f"🛑严格止损！亏损{profit_pct:.1f}%≥{abs(self.stop_loss_pct):.0f}%，执行止损"
             elif drawdown_from_high >= 5 and profit_pct > 0:
                 score = -4
                 signal = "SELL"
