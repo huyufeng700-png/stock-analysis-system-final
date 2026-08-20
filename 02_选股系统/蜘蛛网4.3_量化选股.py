@@ -494,7 +494,7 @@ def screen_stocks():
             if score < 6.5 or rr < 1.3:
                 continue
 
-        if score >= 4.0 and rr >= 1.2:
+        if score >= 7.0 and rr >= 1.2:
             results.append({
                 'code': code, 'name': stock['name'], 'price': stock['price'],
                 'change': stock['change_pct'], 'turnover': stock['turnover'] / 10000,
