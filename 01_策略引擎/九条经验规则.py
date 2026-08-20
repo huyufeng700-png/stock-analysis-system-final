@@ -122,7 +122,7 @@ def fetch_index_data() -> Optional[Dict]:
 def fetch_bank_index() -> Optional[Dict]:
     """获取银行板块指数（881155 银行板块）"""
     try:
-        with urllib.request.urlopen('https://qt.gtimg.cn=q=sh881155', timeout=5, context=SSL_CTX) as r:
+        with urllib.request.urlopen('https://qt.gtimg.cn/q=sh881155', timeout=5, context=SSL_CTX) as r:
             data = r.read().decode('gbk')
             fields = data.split('~')
             if len(fields) > 34:
@@ -133,6 +133,95 @@ def fetch_bank_index() -> Optional[Dict]:
                 }
     except Exception:
         return None
+
+
+# ==================== Layer 3: 市场环境判断 ====================
+
+def fetch_index_series(code: str, count: int = 60):
+    """拉取指数日K序列用于判断趋势/震荡。"""
+    prefix = 'sh' if code.startswith('sh') else 'sz'
+    url = f'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,,,{count},qfq'
+    try:
+        with urllib.request.urlopen(url, timeout=8, context=SSL_CTX) as r:
+            raw = r.read().decode('utf-8')
+            data = json.loads(raw)
+            key = f'{prefix}{code}'
+            klines = ((data.get('data') or {}).get(key) or {}).get('day', []) or ((data.get('data') or {}).get(key) or {}).get('qfqday', [])
+            closes = []
+            for k in klines:
+                if isinstance(k, list) and len(k) >= 3:
+                    closes.append(float(k[2]))
+            return closes
+    except Exception:
+        return None
+
+
+def build_market_regime():
+    """
+    返回 market_regime:
+      - regime: bull | bear | sideways
+      - score_adj: 全局评分调节值
+      - filter_mode: normal | defensive
+    使用沪深300 + 创业板指 + 银行板相对强弱。
+    """
+    try:
+        sh_closes = fetch_index_series('sh000300', 60) or []
+        cy_closes = fetch_index_series('sz399006', 60) or []
+        bank = fetch_bank_index()
+    except Exception:
+        return {'regime': 'sideways', 'score_adj': 0, 'filter_mode': 'normal', 'reason': '指数获取异常，默认中性'}
+
+    regime = 'sideways'
+    score_adj = 0
+    filter_mode = 'normal'
+    reasons = []
+
+    def last_ma(closes, n):
+        if len(closes) < n:
+            return None
+        return sum(closes[-n:]) / n
+
+    sh_ma20 = last_ma(sh_closes, 20)
+    sh_ma60 = last_ma(sh_closes, 60)
+    cy_ma20 = last_ma(cy_closes, 20)
+
+    sh_bull = bool(sh_closes and sh_ma20 and sh_ma60 and sh_closes[-1] > sh_ma20 * 0.97 and sh_closes[-1] > sh_ma60 * 0.93)
+    cy_bull = bool(cy_closes and cy_ma20 and cy_closes[-1] > cy_ma20 * 0.97)
+    sh_downtrend = bool(sh_closes and sh_ma20 and sh_ma60 and sh_ma20 < sh_ma60 * 0.98)
+
+    if sh_bull and cy_bull:
+        regime = 'bull'
+        score_adj = 1
+        filter_mode = 'normal'
+        reasons.append('沪深300+创业板偏强')
+    elif sh_downtrend:
+        regime = 'bear'
+        score_adj = -2
+        filter_mode = 'defensive'
+        reasons.append('沪深300偏弱，降低仓位预期')
+    else:
+        regime = 'sideways'
+        score_adj = 0
+        filter_mode = 'normal'
+        reasons.append('指数震荡')
+
+    if bank and bank.get('change_pct') is not None:
+        idx = fetch_index_data()
+        if idx and idx.get('change_pct') is not None:
+            diff = bank['change_pct'] - idx['change_pct']
+            if diff < -1.5:
+                score_adj += 1
+                reasons.append('银行弱于大盘，资金偏进攻')
+            elif diff > 1.5:
+                score_adj -= 1
+                reasons.append('银行强于大盘，偏防守')
+
+    return {
+        'regime': regime,
+        'score_adj': score_adj,
+        'filter_mode': filter_mode,
+        'reason': '；'.join(reasons) if reasons else '中性',
+    }
 
 
 # ==================== 技术工具函数 ====================

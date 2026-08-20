@@ -111,6 +111,10 @@ def diagnose_cron_silent_failures() -> List[Dict]:
         script = j.get("script")
         if not script:
             continue
+        # 2026-08-20 v4.22 修复: 跳过 enabled=False 的 cron,避免误把"主动禁用任务"算"✅存在"
+        # (8/20 P1 发现: jobs.json 有 10 个 en=False 但 last_run 400+h 的 cron,被日报误标健康)
+        if not j.get("enabled", True):
+            continue
         # workdir=null 时按 cronjob tool 默认路径 ~/.hermes/scripts/ 找 (2026-08-08 P0 fix)
         workdir = j.get("workdir") or str(HOME / ".hermes" / "scripts")
         full = Path(workdir) / script

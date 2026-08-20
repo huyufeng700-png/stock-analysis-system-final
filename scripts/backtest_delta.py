@@ -130,6 +130,66 @@ def run_delta_check(threshold: float = 5.0, top_n: int = 5) -> dict:
     }
 
 
+PARAM_GRID = [
+    {"atr_sl_mult": 2.0, "atr_tp_mult": 3.0, "rsi_min": 30, "rsi_max": 70, "require_vol_ratio": True, "use_trailing_stop": False},
+    {"atr_sl_mult": 2.0, "atr_tp_mult": 3.0, "rsi_min": 30, "rsi_max": 70, "require_vol_ratio": True, "use_trailing_stop": True},
+    {"atr_sl_mult": 2.0, "atr_tp_mult": 3.5, "rsi_min": 30, "rsi_max": 70, "require_vol_ratio": True, "use_trailing_stop": True},
+    {"atr_sl_mult": 2.5, "atr_tp_mult": 3.0, "rsi_min": 30, "rsi_max": 70, "require_vol_ratio": True, "use_trailing_stop": True},
+    {"atr_sl_mult": 2.0, "atr_tp_mult": 3.0, "rsi_min": 35, "rsi_max": 65, "require_vol_ratio": True, "use_trailing_stop": True},
+]
+
+
+def run_param_search(top_n: int = 5) -> dict:
+    """
+    参数搜索: 用最新基线 top_n 只,扫不同策略参数组合,
+    选出平均胜率/平均收益最优的配置。
+    """
+    latest = find_latest_bt()
+    if not latest:
+        return {"status": "NO_BASELINE", "msg": f"backtest 目录无基线: {BT_DIR}"}
+
+    meta, prev_results = load_bt_results(latest)
+    codes = list(prev_results.keys())[:top_n]
+    print(f"🧪 参数搜索基线: {latest.name} ({meta.get('time', '?')}), 标的 {len(codes)} 只, 组合 {len(PARAM_GRID)} 组")
+
+    best = None
+    best_avg_wr = -1e9
+    best_avg_profit = -1e9
+    rows = []
+    for idx, params in enumerate(PARAM_GRID, start=1):
+        wr_sum = 0.0
+        profit_sum = 0.0
+        n = 0
+        detail = {}
+        for code in codes:
+            curr = backtest(code, 90, **params)
+            if curr is None:
+                continue
+            wr_sum += curr["win_rate"]
+            profit_sum += curr["avg_profit"]
+            n += 1
+            detail[code] = curr
+        if n == 0:
+            continue
+        avg_wr = wr_sum / n
+        avg_profit = profit_sum / n
+        rows.append({
+            "idx": idx,
+            "params": params,
+            "avg_win_rate": round(avg_wr, 2),
+            "avg_profit": round(avg_profit, 2),
+            "tested": n,
+            "detail": detail,
+        })
+        if avg_wr > best_avg_wr or (avg_wr == best_avg_wr and avg_profit > best_avg_profit):
+            best_avg_wr = avg_wr
+            best_avg_profit = avg_profit
+            best = rows[-1]
+
+    print(f"✅ 最优组合: #{best['idx']} 平均胜率 {best['avg_win_rate']}% 平均收益 {best['avg_profit']}%")
+    return {"status": "OK", "baseline_file": latest.name, "best": best, "rows": rows}
+
+
 def format_report(result: dict) -> str:
     """人类可读报告"""
     if result["status"] == "NO_BASELINE":
@@ -150,13 +210,125 @@ def format_report(result: dict) -> str:
     return "\n".join(lines)
 
 
+def update_index(bt_dir: Path) -> None:
+    """更新知识库回测索引：JSON + Markdown"""
+    files = sorted(bt_dir.glob("*.json"))
+    index_json = KB_ROOT / "10_配置" / "backtest-index.json"
+    index_md = KB_ROOT / "10_配置" / "backtest-index.md"
+
+    entries = []
+    md_lines = ["# Backtest 索引", ""]
+    md_lines.append(f"- 更新时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    md_lines.append(f"- 产物总数：{len(files)}")
+    md_lines.append("")
+
+    for f in files:
+        try:
+            data = json.load(open(f, "r", encoding="utf-8"))
+        except Exception:
+            continue
+        name = f.name
+        mtime = datetime.fromtimestamp(f.stat().st_mtime).isoformat(timespec="seconds")
+        entry = {
+            "file": name,
+            "path": str(f),
+            "mtime": mtime,
+            "type": "delta" if name.startswith("delta_") else "backtest",
+        }
+        if entry["type"] == "backtest":
+            results = data.get("results", {})
+            n = len(results)
+            wrs = [v.get("win_rate", 0) for v in results.values() if isinstance(v, dict)]
+            avg_wr = round(sum(wrs) / len(wrs), 2) if wrs else None
+            profits = [v.get("avg_profit", 0) for v in results.values() if isinstance(v, dict)]
+            avg_profit = round(sum(profits) / len(profits), 2) if profits else None
+            ranked = sorted(results.items(), key=lambda kv: kv[1].get("avg_profit", 0), reverse=True)
+            top = ranked[:3]
+            bottom = ranked[-3:]
+            entry.update(
+                {
+                    "tested_count": n,
+                    "avg_win_rate": avg_wr,
+                    "avg_profit": avg_profit,
+                    "p0_filtered_count": data.get("p0_filtered_count"),
+                    "p0_dropped_count": data.get("p0_dropped_count"),
+                    "top": [
+                        {"code": k, "win_rate": v.get("win_rate"), "avg_profit": v.get("avg_profit")}
+                        for k, v in top
+                    ],
+                    "bottom": [
+                        {"code": k, "win_rate": v.get("win_rate"), "avg_profit": v.get("avg_profit")}
+                        for k, v in bottom
+                    ],
+                }
+            )
+            md_lines.append(f"## {name}")
+            md_lines.append(f"- 时间：{data.get('time')}")
+            md_lines.append(f"- 标的：{n}，P0 过滤：{data.get('p0_filtered_count')}，P0 丢弃：{data.get('p0_dropped_count')}")
+            if avg_wr is not None:
+                md_lines.append(f"- 平均胜率：{avg_wr}%")
+            if avg_profit is not None:
+                md_lines.append(f"- 平均收益：{avg_profit}%")
+            md_lines.append("- 前三：")
+            for k, v in top:
+                md_lines.append(f"  - {k} 胜率 {v.get('win_rate')}% 收益 {v.get('avg_profit')}%")
+            md_lines.append("- 后三：")
+            for k, v in bottom:
+                md_lines.append(f"  - {k} 胜率 {v.get('win_rate')}% 收益 {v.get('avg_profit')}%")
+            md_lines.append("")
+        else:
+            entry.update(
+                {
+                    "baseline_file": data.get("baseline_file"),
+                    "baseline_time": data.get("baseline_time"),
+                    "status": data.get("status"),
+                    "drift_count": data.get("drift_count", 0),
+                    "fail_count": data.get("fail_count", 0),
+                    "tested_count": len(data.get("deltas", [])),
+                    "drifted": [
+                        {"code": d.get("code"), "wr_delta": d.get("wr_delta"), "ap_delta": d.get("ap_delta")}
+                        for d in data.get("deltas", [])
+                        if d.get("status") == "DRIFT"
+                    ],
+                }
+            )
+        entries.append(entry)
+
+    md_lines.append("## delta")
+    for entry in entries:
+        if entry.get("type") != "delta":
+            continue
+        md_lines.append(
+            f"- {entry['file']} baseline={entry.get('baseline_file')} 状态={entry.get('status')} 漂移={entry.get('drift_count')} 失败={entry.get('fail_count')}"
+        )
+
+    index = {
+        "schema_version": "1.0",
+        "updated_at": datetime.now().isoformat(timespec="seconds"),
+        "count": len(entries),
+        "latest": entries[-5:],
+        "all": entries,
+    }
+    with open(index_json, "w", encoding="utf-8") as f:
+        json.dump(index, f, ensure_ascii=False, indent=2)
+    with open(index_md, "w", encoding="utf-8") as f:
+        f.write("\n".join(md_lines) + "\n")
+    print(f"🧭 索引已更新: {index_json.name}, {index_md.name}")
+
+
 def main():
-    parser = argparse.ArgumentParser(description="蜘蛛网 backtest 漂移守护")
+    parser = argparse.ArgumentParser(description="蜘蛛网 backtest 漂移守护 / 参数搜索")
     parser.add_argument("--once", action="store_true", help="单次跑(默认, 兼容 cron)")
     parser.add_argument("--threshold", type=float, default=5.0, help="win_rate 漂移报警阈值(百分点)")
     parser.add_argument("--top-n", type=int, default=5, help="重跑前 N 只")
     parser.add_argument("--no-push", action="store_true", help="不推飞书(只落盘+stdout)")
+    parser.add_argument("--param-search", action="store_true", help="参数搜索模式：扫描策略参数组合并输出最优配置")
     args = parser.parse_args()
+
+    if args.param_search:
+        search = run_param_search(top_n=args.top_n)
+        print(json.dumps(search, ensure_ascii=False, indent=2))
+        return
 
     result = run_delta_check(threshold=args.threshold, top_n=args.top_n)
     report = format_report(result)
@@ -170,6 +342,12 @@ def main():
     with open(delta_path, "w", encoding="utf-8") as f:
         json.dump(save_obj, f, ensure_ascii=False, indent=2, default=str)
     print(f"\n💾 delta 落盘: {delta_path.name}")
+
+    # 更新知识库索引
+    try:
+        update_index(BT_DIR)
+    except Exception as e:
+        print(f"⚠️ 更新索引失败: {e}")
 
     # 推送策略: 仅漂移或失败时推 OK 不推(借鉴 oncall 三态 P0-601658)
     if not args.no_push and result["status"] in ("DRIFT",):

@@ -144,6 +144,8 @@ class FallbackPool:
             codes: ['sh600584', 'sz002050']  (带市场前缀)
         Returns:
             list of dict, 字段: symbol, name, price, change_pct, ...
+        注 (2026-08-08 P1 fix): 腾讯接口 v_hk= 开头为港股, 跳过;
+                              parts 字段索引按当前返回格式校准
         """
         # --- 路径 1: 腾讯 (单次最多 50 只) ---
         for batch_start in range(0, len(codes), 50):
@@ -157,17 +159,22 @@ class FallbackPool:
                     if '~' not in line or len(line) < 30:
                         continue
                     parts = line.split('~')
-                    if len(parts) < 32:
+                    if len(parts) < 33:  # P1 fix: 索引32 是当日涨跌幅, 至少需要 33 字段
                         continue
                     try:
+                        symbol = parts[0].split('=')[0].strip().replace('v_', '')
+                        # P1 fix: 港股 / 指数前缀跳过 (不是 A 股)
+                        if not (symbol.startswith('sh') or symbol.startswith('sz')):
+                            continue
                         result.append({
-                            'symbol': parts[0].split('=')[0].strip().replace('v_', ''),
+                            'symbol': symbol,
                             'name': parts[1],
                             'price': float(parts[3] or 0),
+                            # P1 fix: parts[32]=当日涨跌幅%, parts[31]=5分钟涨跌幅, 优先 32
                             'change_pct': float(parts[32] or 0),
                             'volume': float(parts[6] or 0) / 1e8,  # 转亿
                         })
-                    except (ValueError, IndexError):
+                    except (ValueError, IndexError) as e:
                         continue
                 if result:
                     return result
@@ -198,6 +205,57 @@ class FallbackPool:
             except (json.JSONDecodeError, KeyError):
                 pass
         return None
+
+    def get_hsgt(self) -> Optional[dict]:
+        """
+        北向资金 (沪股通+深股通) 净流入 — 2026-08-08 P1 新增
+
+        数据源: 东方财富 push2 (secid=1.000300 沪深300 f108=沪股通净买; secid=0.399300 深证300 f108=深股通净买)
+        注: f108 单位"元", 转亿除以 1e8
+        Returns:
+            dict: {
+                'sh_hsgt': float (亿元, 沪股通净买),
+                'sz_hsgt': float (亿元, 深股通净买),
+                'total': float (亿元, 合计净买),
+                'timestamp': str,
+                'source': 'eastmoney'
+            }
+            or None: 拉取失败
+        """
+        try:
+            from datetime import datetime
+            # 沪股通: sh 沪深300 (secid=1.000300) f108
+            # 深股通: sz 深证300 (secid=0.399300) f108
+            url = "https://push2.eastmoney.com/api/qt/stock/get?secid=1.000300,0.399300&fields=f58,f108"
+            ok, raw, lat = self._fetch(url, timeout=10)
+            self.sources['eastmoney'].record_ok(lat) if ok else self.sources['eastmoney'].record_fail(lat, 30)
+            if not ok:
+                return None
+
+            d = json.loads(raw)
+            data = d.get('data') or {}
+            sh_hsgt_raw = data.get('f108') or 0
+            sz_hsgt_raw = 0.0
+
+            # 上面 url 只返一条 (因为 push2 qt/stock/get 不支持 multi-sec), 需要再拉一次
+            url_sz = "https://push2.eastmoney.com/api/qt/stock/get?secid=0.399300&fields=f58,f108"
+            ok2, raw2, lat2 = self._fetch(url_sz, timeout=10)
+            if ok2:
+                d2 = json.loads(raw2)
+                sz_hsgt_raw = (d2.get('data') or {}).get('f108') or 0
+
+            sh_hsgt = float(sh_hsgt_raw) / 1e8  # 转亿
+            sz_hsgt = float(sz_hsgt_raw) / 1e8
+
+            return {
+                'sh_hsgt': round(sh_hsgt, 2),
+                'sz_hsgt': round(sz_hsgt, 2),
+                'total': round(sh_hsgt + sz_hsgt, 2),
+                'timestamp': datetime.now().isoformat(timespec='seconds'),
+                'source': 'eastmoney',
+            }
+        except Exception as e:
+            return None
 
     def get_kline(self, code: str, scale: int = 240, datalen: int = 60) -> Optional[list]:
         """

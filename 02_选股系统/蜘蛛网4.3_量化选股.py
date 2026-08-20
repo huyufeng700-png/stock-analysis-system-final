@@ -19,8 +19,162 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 from fallback_pool import FallbackPool
 
-OUTPUT_DIR = "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/"
+_KB_ROOT = Path(__file__).resolve().parents[1]
+_STRATEGY_DIR = _KB_ROOT / "01_策略引擎"
+if str(_STRATEGY_DIR) not in sys.path:
+    sys.path.insert(0, str(_STRATEGY_DIR))
+from 九条经验规则 import NineRuleEngine
+
+OUTPUT_DIR = str(_KB_ROOT / "runtime" / "picks") + "/"
 KLINE_POOL = FallbackPool()
+_NINE_ENGINE = NineRuleEngine()
+
+
+# ==================== 统一评分引擎（P0 重构） ====================
+# 目标：把蜘蛛网内置评分 + 五层确认 + 九条经验合并成一套加权信号，
+# 去掉重复打分，提升信号一致性和可回测性。
+
+_UNIFIED_WEIGHTS = {
+    'trend': 1.0,
+    'macd': 1.2,
+    'rsi': 0.8,
+    'vol_ratio': 1.0,
+    'momentum': 0.8,
+    'nine_rules': 1.1,
+    'market_regime': 1.0,
+    'money_flow': 0.7,
+    'sector_rotation': 0.7,
+    'history': 0.6,
+}
+
+
+def _safe_num(v, default=0.0):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def score_unified(stock: dict, df: pd.DataFrame, market_regime: dict, money_flow: dict) -> dict:
+    """
+    统一评分入口。
+    返回: {
+        'code', 'name', 'price', 'score', 'signal',
+        'stop_loss', 'take_profit', 'risk_reward', 'atr', 'rsi',
+        'vol_ratio', 'sector', 'cnt_in_top5', 'days_in_top5',
+        'breakdown': {...}
+    }
+    """
+    code = stock.get('code')
+    name = stock.get('name', '')
+    price = _safe_num(stock.get('price'), 0.0)
+    if not code or price <= 0 or df is None or len(df) < 20:
+        return {
+            'code': code, 'name': name, 'price': price, 'score': 0.0, 'signal': 'HOLD',
+            'stop_loss': price, 'take_profit': price, 'risk_reward': 0.0, 'atr': price * 0.02,
+            'rsi': 50.0, 'vol_ratio': 1.0, 'sector': stock.get('sector') or '其他',
+            'cnt_in_top5': 0, 'days_in_top5': 0, 'breakdown': {}, 'nine_signal': 'HOLD', 'nine_score': 0.0,
+        }
+
+    latest = df.iloc[-1]
+    prev = df.iloc[-2]
+    vol_ratio = _safe_num(latest.get('vol_ratio'), 1.0)
+
+    # ---------- 基础信号 ----------
+    trend_up = bool(latest['close'] > latest['ema20'])
+    ma_bull = bool(latest['ema5'] > latest['ema10'] > latest['ema20'])
+    macd_bullish = bool((latest['dif'] > latest['dea'] and prev['dif'] <= prev['dea']) or latest['macd'] > 0)
+    rsi = _safe_num(latest.get('rsi'), 50.0)
+    rsi_ok = bool(35 < rsi < 65 and rsi > _safe_num(prev.get('rsi'), rsi - 1))
+
+    # ---------- 九条经验信号 ----------
+    klines = []
+    for _, row in df.tail(25).iterrows():
+        try:
+            klines.append({
+                'date': str(row.name),
+                'open': _safe_num(row.get('open')),
+                'close': _safe_num(row.get('close')),
+                'high': _safe_num(row.get('high')),
+                'low': _safe_num(row.get('low')),
+                'volume': _safe_num(row.get('volume')),
+            })
+        except Exception:
+            continue
+    nine = _NINE_ENGINE.evaluate(code, cost_price=None, sector_stocks=[])
+    nine_total = _safe_num((nine or {}).get('total_score'), 0.0)
+    nine_signal = (nine or {}).get('composite_signal', 'HOLD')
+
+    # ---------- 市场环境 ----------
+    regime = market_regime or {}
+    regime_adj = _safe_num(regime.get('score_adj'), 0.0)
+
+    # ---------- 资金流 ----------
+    flow = _safe_num(money_flow.get(code), 0.0)
+
+    # ---------- 板块/历史 ----------
+    sector = stock.get('sector') or '其他'
+    cnt_in_top5 = int(stock.get('cnt_in_top5') or 0)
+    days_in_top5 = int(stock.get('days_in_top5') or 0)
+
+    # ---------- 加权总分（归一到 0-10） ----------
+    parts = {
+        'trend': 2.0 if trend_up else -1.0,
+        'macd': 2.0 if macd_bullish else -1.0,
+        'rsi': 1.0 if rsi_ok else (-1.0 if rsi > 75 or rsi < 30 else 0.0),
+        'vol_ratio': 1.0 if vol_ratio > 1.3 else (-1.0 if vol_ratio < 1.0 else 0.0),
+        'momentum': 1.0 if stock.get('change_pct', 0) is not None and 1 <= float(stock.get('change_pct') or 0) <= 6 else 0.0,
+        'nine_rules': _safe_num(nine_total / 100 * 2.5, 0.0),
+        'market_regime': regime_adj,
+        'money_flow': 1.0 if flow > 0 else (-1.0 if flow < 0 else 0.0),
+        'sector_rotation': -0.5 if sector in ('银行', '电力') and cnt_in_top5 >= 3 else 0.0,
+        'history': -0.5 if days_in_top5 >= 3 else 0.0,
+    }
+
+    weighted = 0.0
+    weight_sum = 0.0
+    for key, val in parts.items():
+        w = _UNIFIED_WEIGHTS.get(key, 1.0)
+        weighted += val * w
+        weight_sum += w
+    score = weighted / weight_sum if weight_sum > 0 else 0.0
+    score = max(0.0, min(10.0, score + 2.5))
+
+    # ---------- 信号 ----------
+    if score >= 7.5 and ma_bull:
+        signal = 'BUY'
+    elif score >= 6.0:
+        signal = 'BUY'
+    elif score >= 4.0:
+        signal = 'HOLD'
+    else:
+        signal = 'SELL'
+
+    # ---------- 风控 ----------
+    atr = _safe_num(latest.get('atr'), price * 0.02)
+    stop_loss = price - 2.0 * atr
+    take_profit = price + 3.0 * atr
+    rr = (take_profit - price) / max(price - stop_loss, 0.01)
+
+    return {
+        'code': code,
+        'name': name,
+        'price': price,
+        'score': round(score, 2),
+        'signal': signal,
+        'stop_loss': round(stop_loss, 2),
+        'take_profit': round(take_profit, 2),
+        'risk_reward': round(rr, 2),
+        'atr': round(atr, 2),
+        'rsi': round(rsi, 1),
+        'vol_ratio': round(vol_ratio, 2),
+        'sector': sector,
+        'cnt_in_top5': cnt_in_top5,
+        'days_in_top5': days_in_top5,
+        'breakdown': parts,
+        'nine_signal': nine_signal,
+        'nine_score': round(nine_total, 1),
+    }
 
 
 # ==================== P0-013 辅助: 板块分类 + 历史推荐聚合 ====================
@@ -299,6 +453,8 @@ def screen_stocks():
     results = []
     # P0-013 修复 (2026-07-03): 历史推荐聚合, 给 cnt_in_top5 / days_in_top5 喂数
     history_stats = _load_top5_history(days=10)
+    market_regime = build_market_regime()
+    print(f"   🌍 市场环境: {market_regime.get('reason', '中性')}")
     for i, stock in enumerate(base):
         code = stock['code']
         market = 'sh' if code.startswith('6') else 'sz'
@@ -321,85 +477,41 @@ def screen_stocks():
         h = history_stats.get(code, {'cnt': 0, 'days': 0})
         stock['cnt_in_top5'] = h['cnt']
         stock['days_in_top5'] = h['days']
-        
-        score = 0
-        if code in blacklist_codes:
-            # 持续亏损标的直接过滤
+
+        # ===== 统一评分引擎 =====
+        unified = score_unified(stock, df, market_regime, money_flow)
+        if not unified:
             continue
-        if latest['ema5'] > latest['ema10'] > latest['ema20']: score += 2
-        if latest['close'] > latest['ema20']: score += 1
-        if latest['dif'] > latest['dea'] and prev['dif'] <= prev['dea']: score += 2
-        elif latest['macd'] > 0: score += 1
-        if 35 < latest['rsi'] < 65 and latest['rsi'] > prev['rsi']: score += 1
-        if vol_ratio > 1.3: score += 1
-        if 1 <= stock['change_pct'] <= 6: score += 1
-        if stock['amplitude'] < 8: score += 1
 
-        # ===== v5 评分补丁 (2026-06-12 by 小胡瓜优化师, 应用) — P0-013 修复 (07-03) =====
-        # P0-004: 超买卖出/超卖加分
-        if latest['rsi'] > 75: score -= 2
-        if latest['rsi'] < 30: score += 1
-        # P1-009: 量能硬条件 (P0-013 用 vol_ratio 局部变量替代 latest, 已容错 NaN)
-        if vol_ratio < 1.3: score -= 1
-        # P0-005: 板块集中度惩罚 (P0-013: 现在 sector/cnt 有数了, 银行/电力 + 3+ 次 → 扣 1)
-        if stock.get('sector') in ('银行', '电力') and stock.get('cnt_in_top5', 0) >= 3:
-            score -= 1
-        # P2-002: 防止连续推荐加分 (P0-013: days_in_top5 现在来自历史 json)
-        if stock.get('days_in_top5', 0) >= 3:
-            score -= 0.5
-        # 板块分散度惩罚：同一板块在当次结果中占比过高时扣分
-        sector_counts = {}
-        for _s in results:
-            sector_counts[_s.get('sector', '其他')] = sector_counts.get(_s.get('sector', '其他'), 0) + 1
-        current_sector = stock.get('sector', '其他')
-        if sector_counts.get(current_sector, 0) >= 4:
-            score -= 1
-        
-        # 板块轮动过滤：强势板块优先，非强势板块降权但不直接淘汰
-        if _SECTOR_TOP3 and current_sector not in _SECTOR_TOP3:
-            score -= 2
-        
-        # 资金流过滤：主力净流入为负扣分，为正加分
-        flow = money_flow.get(code, 0)
-        if flow < 0:
-            score -= 1
-        elif flow > 0:
-            score += 1
-        # ===== v5 end =====
+        score = unified['score']
+        signal = unified['signal']
+        rr = unified['risk_reward']
+        atr = unified['atr']
+        rsi = unified['rsi']
+        stop_loss = unified['stop_loss']
+        take_profit = unified['take_profit']
 
-        atr = latest['atr'] if not pd.isna(latest['atr']) else stock['price'] * 0.02
-        entry = stock['price']
-        stop_loss = entry - 2 * atr
-        take_profit = entry + 3 * atr
-        rr = (take_profit - entry) / max(entry - stop_loss, 0.01)
-        
-        if score >= 4 and rr >= 1.2:
+        # 熊市/震荡过滤：只保留高评分 + 高盈亏比
+        if market_regime.get('filter_mode') == 'defensive':
+            if score < 6.5 or rr < 1.3:
+                continue
+
+        if score >= 4.0 and rr >= 1.2:
             results.append({
                 'code': code, 'name': stock['name'], 'price': stock['price'],
                 'change': stock['change_pct'], 'turnover': stock['turnover'] / 10000,
-                'score': score, 'stop_loss': round(stop_loss, 2),
-                'take_profit': round(take_profit, 2), 'risk_reward': round(rr, 2),
-                'atr': round(atr, 2), 'rsi': round(latest['rsi'], 1),
-                # P0-013 (07-03) 第二层修复: 序列化补 4 字段, 让 P1-015 工具检查全绿
-                'vol_ratio': round(vol_ratio, 2),
+                'score': score, 'stop_loss': stop_loss,
+                'take_profit': take_profit, 'risk_reward': rr,
+                'atr': atr, 'rsi': rsi,
+                'vol_ratio': unified['vol_ratio'],
                 'sector': stock.get('sector', '其他'),
                 'cnt_in_top5': stock.get('cnt_in_top5', 0),
                 'days_in_top5': stock.get('days_in_top5', 0),
+                'nine_signal': unified.get('nine_signal'),
+                'nine_score': unified.get('nine_score'),
+                'breakdown': unified.get('breakdown', {}),
             })
-        elif market_filter == 'bearish' and score >= 4.5 and rr >= 1.3:
-            # 熊市只放行高评分+高盈亏比
-            results.append({
-                'code': code, 'name': stock['name'], 'price': stock['price'],
-                'change': stock['change_pct'], 'turnover': stock['turnover'] / 10000,
-                'score': score, 'stop_loss': round(stop_loss, 2),
-                'take_profit': round(take_profit, 2), 'risk_reward': round(rr, 2),
-                'atr': round(atr, 2), 'rsi': round(latest['rsi'], 1),
-                'vol_ratio': round(vol_ratio, 2),
-                'sector': stock.get('sector', '其他'),
-                'cnt_in_top5': stock.get('cnt_in_top5', 0),
-                'days_in_top5': stock.get('days_in_top5', 0),
-            })
-        
+
         if (i+1) % 20 == 0:
             print(f"   已扫描 {i+1}/{len(base)}, 命中 {len(results)}")
     
@@ -411,7 +523,7 @@ def screen_stocks():
 # ==================== 回测验证 ====================
 
 def backtest(stock_code, days=90, *, atr_sl_mult=2.0, atr_tp_mult=3.0, rsi_min=30, rsi_max=70, require_vol_ratio=True, use_trailing_stop=True):
-    """单股票回测（90天）"""
+    """单股票回测（90天），使用统一评分引擎作为入场信号"""
     market = 'sh' if stock_code.startswith('6') else 'sz'
     df = fetch_sina_kline(f"{market}{stock_code}", 240, days + 60)
     if df is None or len(df) < 60:
@@ -432,15 +544,24 @@ def backtest(stock_code, days=90, *, atr_sl_mult=2.0, atr_tp_mult=3.0, rsi_min=3
         prev = df.iloc[i-1]
         
         if position == 0:
-            # 与 screen_stocks 核心信号对齐：趋势 + MACD + RSI + 量能
-            trend_ok = row['close'] > row['ema20']
-            macd_ok = (row['dif'] > row['dea'] and prev['dif'] <= prev['dea']) or row['macd'] > 0
-            rsi_ok = rsi_min < row['rsi'] < rsi_max
-            vol_ok = (not require_vol_ratio) or (row.get('vol_ratio', 0) > 1.2)
-            ma60_bull = row['close'] > df.iloc[max(0, i-60):i+1]['close'].mean() * 0.93
+            # 用统一评分引擎判断入场
+            vol_ratio = row.get('vol_ratio') if pd.notna(row.get('vol_ratio')) else 1.0
+            stock_snapshot = {
+                'code': stock_code,
+                'name': stock_code,
+                'price': row['close'],
+                'change_pct': (row['close'] - prev['close']) / prev['close'] * 100 if prev['close'] > 0 else 0,
+                'turnover': 0,
+                'sector': '其他',
+                'cnt_in_top5': 0,
+                'days_in_top5': 0,
+            }
+            unified = score_unified(stock_snapshot, df.iloc[:i+1], {'filter_mode': 'normal', 'score_adj': 0}, {})
+            if not unified:
+                continue
+            entry_signal = unified.get('nine_signal', 'HOLD') == 'BUY' and unified.get('score', 0) >= 6.0
             
-            buy = trend_ok and macd_ok and rsi_ok and vol_ok and ma60_bull
-            if buy:
+            if entry_signal:
                 position = 1
                 entry_price = row['close']
                 entry_idx = i
@@ -505,7 +626,7 @@ def generate_report(stocks, backtest_results=None):
     for i, s in enumerate(stocks[:10], 1):
         report_lines.append(f"\n{i}. {s['name']} ({s['code']})")
         report_lines.append(f"   💰 ¥{s['price']}  涨跌幅: {s['change']:+.2f}%  成交额: {s['turnover']:.1f}亿")
-        report_lines.append(f"   📊 评分: {s['score']}/10  RSI: {s['rsi']}  ATR: {s['atr']}")
+        report_lines.append(f"   📊 评分: {s['score']:.2f}/10  信号: {s.get('nine_signal', '-')}  九条经验: {s.get('nine_score', '-')}")
         report_lines.append(f"   🛑 止损: ¥{s['stop_loss']}  🎯 止盈: ¥{s['take_profit']}  风险收益比: {s['risk_reward']}")
         
         if backtest_results and s['code'] in backtest_results:

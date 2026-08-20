@@ -1,0 +1,1297 @@
+{
+  "schema_version": "1.0",
+  "updated_at": "2026-08-19T15:30:12",
+  "count": 45,
+  "latest": [
+    {
+      "file": "delta_20260815_191619.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260815_191619.json",
+      "mtime": "2026-08-15T19:16:19",
+      "type": "delta",
+      "baseline_file": null,
+      "baseline_time": null,
+      "status": "EMPTY",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 0,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260815_191732.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260815_191732.json",
+      "mtime": "2026-08-15T19:17:32",
+      "type": "delta",
+      "baseline_file": "backtest_20260815_1915_600048.json",
+      "baseline_time": "2026-08-15T19:15:55.780766",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 1,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260817_153159.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260817_153159.json",
+      "mtime": "2026-08-17T15:31:59",
+      "type": "delta",
+      "baseline_file": "backtest_20260816_0839.json",
+      "baseline_time": "2026-08-16T08:39:28.271270",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260818_153016.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260818_153016.json",
+      "mtime": "2026-08-18T15:30:16",
+      "type": "delta",
+      "baseline_file": "backtest_20260818_0906.json",
+      "baseline_time": "2026-08-18T09:06:23.373177",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260819_153012.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260819_153012.json",
+      "mtime": "2026-08-19T15:30:12",
+      "type": "delta",
+      "baseline_file": "backtest_20260819_0906.json",
+      "baseline_time": "2026-08-19T09:06:44.113805",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": []
+    }
+  ],
+  "all": [
+    {
+      "file": "backtest_20260804_0902.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260804_0902.json",
+      "mtime": "2026-08-04T09:02:36",
+      "type": "backtest",
+      "tested_count": 4,
+      "avg_win_rate": 12.5,
+      "avg_profit": -4.7,
+      "p0_filtered_count": 12,
+      "p0_dropped_count": 3,
+      "top": [
+        {
+          "code": "601985",
+          "win_rate": 50.0,
+          "avg_profit": 0.7
+        },
+        {
+          "code": "601668",
+          "win_rate": 0.0,
+          "avg_profit": -1.89
+        },
+        {
+          "code": "600588",
+          "win_rate": 0.0,
+          "avg_profit": -8.24
+        }
+      ],
+      "bottom": [
+        {
+          "code": "601668",
+          "win_rate": 0.0,
+          "avg_profit": -1.89
+        },
+        {
+          "code": "600588",
+          "win_rate": 0.0,
+          "avg_profit": -8.24
+        },
+        {
+          "code": "688111",
+          "win_rate": 0.0,
+          "avg_profit": -9.38
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260805_0902.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260805_0902.json",
+      "mtime": "2026-08-05T09:02:49",
+      "type": "backtest",
+      "tested_count": 4,
+      "avg_win_rate": 0.0,
+      "avg_profit": -4.2,
+      "p0_filtered_count": 11,
+      "p0_dropped_count": 4,
+      "top": [
+        {
+          "code": "002230",
+          "win_rate": 0.0,
+          "avg_profit": -3.53
+        },
+        {
+          "code": "300347",
+          "win_rate": 0.0,
+          "avg_profit": -3.56
+        },
+        {
+          "code": "600585",
+          "win_rate": 0.0,
+          "avg_profit": -4.32
+        }
+      ],
+      "bottom": [
+        {
+          "code": "300347",
+          "win_rate": 0.0,
+          "avg_profit": -3.56
+        },
+        {
+          "code": "600585",
+          "win_rate": 0.0,
+          "avg_profit": -4.32
+        },
+        {
+          "code": "300413",
+          "win_rate": 0.0,
+          "avg_profit": -5.38
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260805_0903.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260805_0903.json",
+      "mtime": "2026-08-05T09:03:33",
+      "type": "backtest",
+      "tested_count": 4,
+      "avg_win_rate": 0.0,
+      "avg_profit": -4.2,
+      "p0_filtered_count": 11,
+      "p0_dropped_count": 4,
+      "top": [
+        {
+          "code": "002230",
+          "win_rate": 0.0,
+          "avg_profit": -3.53
+        },
+        {
+          "code": "300347",
+          "win_rate": 0.0,
+          "avg_profit": -3.56
+        },
+        {
+          "code": "600585",
+          "win_rate": 0.0,
+          "avg_profit": -4.32
+        }
+      ],
+      "bottom": [
+        {
+          "code": "300347",
+          "win_rate": 0.0,
+          "avg_profit": -3.56
+        },
+        {
+          "code": "600585",
+          "win_rate": 0.0,
+          "avg_profit": -4.32
+        },
+        {
+          "code": "300413",
+          "win_rate": 0.0,
+          "avg_profit": -5.38
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260808_2338.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260808_2338.json",
+      "mtime": "2026-08-08T23:38:52",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 13.34,
+      "avg_profit": -4.01,
+      "p0_filtered_count": 11,
+      "p0_dropped_count": 4,
+      "top": [
+        {
+          "code": "600309",
+          "win_rate": 66.7,
+          "avg_profit": 3.33
+        },
+        {
+          "code": "600276",
+          "win_rate": 0.0,
+          "avg_profit": -3.53
+        },
+        {
+          "code": "601012",
+          "win_rate": 0.0,
+          "avg_profit": -4.55
+        }
+      ],
+      "bottom": [
+        {
+          "code": "601012",
+          "win_rate": 0.0,
+          "avg_profit": -4.55
+        },
+        {
+          "code": "300595",
+          "win_rate": 0.0,
+          "avg_profit": -5.62
+        },
+        {
+          "code": "300003",
+          "win_rate": 0.0,
+          "avg_profit": -9.68
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260810_0903.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260810_0903.json",
+      "mtime": "2026-08-10T09:03:14",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 13.34,
+      "avg_profit": -4.03,
+      "p0_filtered_count": 11,
+      "p0_dropped_count": 4,
+      "top": [
+        {
+          "code": "600309",
+          "win_rate": 66.7,
+          "avg_profit": 3.38
+        },
+        {
+          "code": "600276",
+          "win_rate": 0.0,
+          "avg_profit": -3.54
+        },
+        {
+          "code": "601012",
+          "win_rate": 0.0,
+          "avg_profit": -4.55
+        }
+      ],
+      "bottom": [
+        {
+          "code": "601012",
+          "win_rate": 0.0,
+          "avg_profit": -4.55
+        },
+        {
+          "code": "300595",
+          "win_rate": 0.0,
+          "avg_profit": -5.67
+        },
+        {
+          "code": "300003",
+          "win_rate": 0.0,
+          "avg_profit": -9.77
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260812_0905.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260812_0905.json",
+      "mtime": "2026-08-12T09:05:14",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 34.66,
+      "avg_profit": 1.08,
+      "p0_filtered_count": 13,
+      "p0_dropped_count": 2,
+      "top": [
+        {
+          "code": "300115",
+          "win_rate": 100.0,
+          "avg_profit": 14.59
+        },
+        {
+          "code": "600519",
+          "win_rate": 33.3,
+          "avg_profit": 0.01
+        },
+        {
+          "code": "300750",
+          "win_rate": 40.0,
+          "avg_profit": -1.96
+        }
+      ],
+      "bottom": [
+        {
+          "code": "300750",
+          "win_rate": 40.0,
+          "avg_profit": -1.96
+        },
+        {
+          "code": "600276",
+          "win_rate": 0.0,
+          "avg_profit": -3.53
+        },
+        {
+          "code": "300979",
+          "win_rate": 0.0,
+          "avg_profit": -3.71
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260812_1915.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260812_1915.json",
+      "mtime": "2026-08-12T19:15:23",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 20.0,
+      "avg_profit": -4.19,
+      "p0_filtered_count": 11,
+      "p0_dropped_count": 4,
+      "top": [
+        {
+          "code": "600048",
+          "win_rate": 100.0,
+          "avg_profit": 11.6
+        },
+        {
+          "code": "300979",
+          "win_rate": 0.0,
+          "avg_profit": -4.41
+        },
+        {
+          "code": "601012",
+          "win_rate": 0.0,
+          "avg_profit": -6.11
+        }
+      ],
+      "bottom": [
+        {
+          "code": "601012",
+          "win_rate": 0.0,
+          "avg_profit": -6.11
+        },
+        {
+          "code": "600489",
+          "win_rate": 0.0,
+          "avg_profit": -9.41
+        },
+        {
+          "code": "000063",
+          "win_rate": 0.0,
+          "avg_profit": -12.6
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260812_1941.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260812_1941.json",
+      "mtime": "2026-08-12T19:41:24",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 25.0,
+      "avg_profit": -2.33,
+      "p0_filtered_count": 13,
+      "p0_dropped_count": 2,
+      "top": [
+        {
+          "code": "300979",
+          "win_rate": 50.0,
+          "avg_profit": 4.17
+        },
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        },
+        {
+          "code": "601012",
+          "win_rate": 0.0,
+          "avg_profit": -3.77
+        }
+      ],
+      "bottom": [
+        {
+          "code": "601012",
+          "win_rate": 0.0,
+          "avg_profit": -3.77
+        },
+        {
+          "code": "000063",
+          "win_rate": 25.0,
+          "avg_profit": -6.67
+        },
+        {
+          "code": "600489",
+          "win_rate": 0.0,
+          "avg_profit": -8.35
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260812_2018.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260812_2018.json",
+      "mtime": "2026-08-12T20:18:17",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 19.0,
+      "avg_profit": -2.09,
+      "p0_filtered_count": 13,
+      "p0_dropped_count": 2,
+      "top": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        },
+        {
+          "code": "300142",
+          "win_rate": 20.0,
+          "avg_profit": 0.31
+        },
+        {
+          "code": "601899",
+          "win_rate": 25.0,
+          "avg_profit": -1.0
+        }
+      ],
+      "bottom": [
+        {
+          "code": "601899",
+          "win_rate": 25.0,
+          "avg_profit": -1.0
+        },
+        {
+          "code": "600570",
+          "win_rate": 0.0,
+          "avg_profit": -2.76
+        },
+        {
+          "code": "600547",
+          "win_rate": 0.0,
+          "avg_profit": -9.96
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260812_2022.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260812_2022.json",
+      "mtime": "2026-08-12T20:22:42",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 19.0,
+      "avg_profit": -1.85,
+      "p0_filtered_count": 13,
+      "p0_dropped_count": 2,
+      "top": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        },
+        {
+          "code": "300142",
+          "win_rate": 20.0,
+          "avg_profit": 0.31
+        },
+        {
+          "code": "300661",
+          "win_rate": 25.0,
+          "avg_profit": 0.19
+        }
+      ],
+      "bottom": [
+        {
+          "code": "300661",
+          "win_rate": 25.0,
+          "avg_profit": 0.19
+        },
+        {
+          "code": "600570",
+          "win_rate": 0.0,
+          "avg_profit": -2.76
+        },
+        {
+          "code": "600547",
+          "win_rate": 0.0,
+          "avg_profit": -9.96
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260812_2031.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260812_2031.json",
+      "mtime": "2026-08-12T20:31:41",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 15.0,
+      "avg_profit": -3.26,
+      "p0_filtered_count": 12,
+      "p0_dropped_count": 3,
+      "top": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        },
+        {
+          "code": "300661",
+          "win_rate": 25.0,
+          "avg_profit": 0.19
+        },
+        {
+          "code": "600570",
+          "win_rate": 0.0,
+          "avg_profit": -2.76
+        }
+      ],
+      "bottom": [
+        {
+          "code": "600570",
+          "win_rate": 0.0,
+          "avg_profit": -2.76
+        },
+        {
+          "code": "000878",
+          "win_rate": 0.0,
+          "avg_profit": -6.71
+        },
+        {
+          "code": "600547",
+          "win_rate": 0.0,
+          "avg_profit": -9.96
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260812_2106.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260812_2106.json",
+      "mtime": "2026-08-12T21:06:48",
+      "type": "backtest",
+      "tested_count": 2,
+      "avg_win_rate": 41.65,
+      "avg_profit": 1.08,
+      "p0_filtered_count": 2,
+      "p0_dropped_count": 0,
+      "top": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        },
+        {
+          "code": "688012",
+          "win_rate": 33.3,
+          "avg_profit": -0.78
+        }
+      ],
+      "bottom": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        },
+        {
+          "code": "688012",
+          "win_rate": 33.3,
+          "avg_profit": -0.78
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260812_2107.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260812_2107.json",
+      "mtime": "2026-08-12T21:07:41",
+      "type": "backtest",
+      "tested_count": 2,
+      "avg_win_rate": 41.65,
+      "avg_profit": 1.08,
+      "p0_filtered_count": 2,
+      "p0_dropped_count": 0,
+      "top": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        },
+        {
+          "code": "688012",
+          "win_rate": 33.3,
+          "avg_profit": -0.78
+        }
+      ],
+      "bottom": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        },
+        {
+          "code": "688012",
+          "win_rate": 33.3,
+          "avg_profit": -0.78
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260812_2234.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260812_2234.json",
+      "mtime": "2026-08-12T22:34:14",
+      "type": "backtest",
+      "tested_count": 2,
+      "avg_win_rate": 41.65,
+      "avg_profit": 1.08,
+      "p0_filtered_count": 2,
+      "p0_dropped_count": 0,
+      "top": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        },
+        {
+          "code": "688012",
+          "win_rate": 33.3,
+          "avg_profit": -0.78
+        }
+      ],
+      "bottom": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        },
+        {
+          "code": "688012",
+          "win_rate": 33.3,
+          "avg_profit": -0.78
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260812_2236.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260812_2236.json",
+      "mtime": "2026-08-12T22:36:04",
+      "type": "backtest",
+      "tested_count": 1,
+      "avg_win_rate": 50.0,
+      "avg_profit": 2.95,
+      "p0_filtered_count": 1,
+      "p0_dropped_count": 0,
+      "top": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        }
+      ],
+      "bottom": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260813_0904.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260813_0904.json",
+      "mtime": "2026-08-13T09:04:12",
+      "type": "backtest",
+      "tested_count": 1,
+      "avg_win_rate": 50.0,
+      "avg_profit": 2.95,
+      "p0_filtered_count": 1,
+      "p0_dropped_count": 0,
+      "top": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        }
+      ],
+      "bottom": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.95
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260814_0904.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260814_0904.json",
+      "mtime": "2026-08-14T09:04:14",
+      "type": "backtest",
+      "tested_count": 3,
+      "avg_win_rate": 33.33,
+      "avg_profit": 1.67,
+      "p0_filtered_count": 1,
+      "p0_dropped_count": 2,
+      "top": [
+        {
+          "code": "600809",
+          "win_rate": 100.0,
+          "avg_profit": 14.98
+        },
+        {
+          "code": "300832",
+          "win_rate": 0.0,
+          "avg_profit": -4.79
+        },
+        {
+          "code": "300676",
+          "win_rate": 0.0,
+          "avg_profit": -5.18
+        }
+      ],
+      "bottom": [
+        {
+          "code": "600809",
+          "win_rate": 100.0,
+          "avg_profit": 14.98
+        },
+        {
+          "code": "300832",
+          "win_rate": 0.0,
+          "avg_profit": -4.79
+        },
+        {
+          "code": "300676",
+          "win_rate": 0.0,
+          "avg_profit": -5.18
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260815_1915_300115.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260815_1915_300115.json",
+      "mtime": "2026-08-15T19:17:24",
+      "type": "backtest",
+      "tested_count": 1,
+      "avg_win_rate": 25.0,
+      "avg_profit": -4.05,
+      "p0_filtered_count": 1,
+      "p0_dropped_count": 0,
+      "top": [
+        {
+          "code": "300115",
+          "win_rate": 25.0,
+          "avg_profit": -4.05
+        }
+      ],
+      "bottom": [
+        {
+          "code": "300115",
+          "win_rate": 25.0,
+          "avg_profit": -4.05
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260815_1915_600048.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260815_1915_600048.json",
+      "mtime": "2026-08-15T19:17:24",
+      "type": "backtest",
+      "tested_count": 1,
+      "avg_win_rate": 50.0,
+      "avg_profit": 2.42,
+      "p0_filtered_count": 1,
+      "p0_dropped_count": 0,
+      "top": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.42
+        }
+      ],
+      "bottom": [
+        {
+          "code": "600048",
+          "win_rate": 50.0,
+          "avg_profit": 2.42
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260816_0836.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260816_0836.json",
+      "mtime": "2026-08-16T08:36:00",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 10.66,
+      "avg_profit": -3.71,
+      "p0_filtered_count": 6,
+      "p0_dropped_count": 3,
+      "top": [
+        {
+          "code": "601225",
+          "win_rate": 33.3,
+          "avg_profit": 2.02
+        },
+        {
+          "code": "688981",
+          "win_rate": 20.0,
+          "avg_profit": -1.93
+        },
+        {
+          "code": "600111",
+          "win_rate": 0.0,
+          "avg_profit": -3.9
+        }
+      ],
+      "bottom": [
+        {
+          "code": "600111",
+          "win_rate": 0.0,
+          "avg_profit": -3.9
+        },
+        {
+          "code": "300832",
+          "win_rate": 0.0,
+          "avg_profit": -4.79
+        },
+        {
+          "code": "000975",
+          "win_rate": 0.0,
+          "avg_profit": -9.97
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260816_0839.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260816_0839.json",
+      "mtime": "2026-08-16T08:39:28",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 23.98,
+      "avg_profit": -0.16,
+      "p0_filtered_count": 11,
+      "p0_dropped_count": 1,
+      "top": [
+        {
+          "code": "600660",
+          "win_rate": 33.3,
+          "avg_profit": 2.3
+        },
+        {
+          "code": "601225",
+          "win_rate": 33.3,
+          "avg_profit": 2.02
+        },
+        {
+          "code": "600941",
+          "win_rate": 33.3,
+          "avg_profit": 0.73
+        }
+      ],
+      "bottom": [
+        {
+          "code": "600941",
+          "win_rate": 33.3,
+          "avg_profit": 0.73
+        },
+        {
+          "code": "688981",
+          "win_rate": 20.0,
+          "avg_profit": -1.93
+        },
+        {
+          "code": "600111",
+          "win_rate": 0.0,
+          "avg_profit": -3.9
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260818_0906.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260818_0906.json",
+      "mtime": "2026-08-18T09:06:23",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 56.66,
+      "avg_profit": 5.26,
+      "p0_filtered_count": 15,
+      "p0_dropped_count": 0,
+      "top": [
+        {
+          "code": "300433",
+          "win_rate": 100.0,
+          "avg_profit": 14.5
+        },
+        {
+          "code": "600497",
+          "win_rate": 75.0,
+          "avg_profit": 9.9
+        },
+        {
+          "code": "600547",
+          "win_rate": 50.0,
+          "avg_profit": 2.45
+        }
+      ],
+      "bottom": [
+        {
+          "code": "600547",
+          "win_rate": 50.0,
+          "avg_profit": 2.45
+        },
+        {
+          "code": "002371",
+          "win_rate": 25.0,
+          "avg_profit": 0.24
+        },
+        {
+          "code": "688012",
+          "win_rate": 33.3,
+          "avg_profit": -0.78
+        }
+      ]
+    },
+    {
+      "file": "backtest_20260819_0906.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/backtest_20260819_0906.json",
+      "mtime": "2026-08-19T09:06:44",
+      "type": "backtest",
+      "tested_count": 5,
+      "avg_win_rate": 29.98,
+      "avg_profit": 0.79,
+      "p0_filtered_count": 12,
+      "p0_dropped_count": 1,
+      "top": [
+        {
+          "code": "688017",
+          "win_rate": 33.3,
+          "avg_profit": 3.83
+        },
+        {
+          "code": "601225",
+          "win_rate": 33.3,
+          "avg_profit": 2.02
+        },
+        {
+          "code": "601088",
+          "win_rate": 50.0,
+          "avg_profit": 2.0
+        }
+      ],
+      "bottom": [
+        {
+          "code": "601088",
+          "win_rate": 50.0,
+          "avg_profit": 2.0
+        },
+        {
+          "code": "603728",
+          "win_rate": 33.3,
+          "avg_profit": 0.39
+        },
+        {
+          "code": "002714",
+          "win_rate": 0.0,
+          "avg_profit": -4.31
+        }
+      ]
+    },
+    {
+      "file": "delta_20260803_160227.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260803_160227.json",
+      "mtime": "2026-08-03T16:02:27",
+      "type": "delta",
+      "baseline_file": "backtest_20260731_1534.json",
+      "baseline_time": "2026-07-31T15:34:06.424808",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 4,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260804_083811.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260804_083811.json",
+      "mtime": "2026-08-04T08:38:11",
+      "type": "delta",
+      "baseline_file": "backtest_20260731_1534.json",
+      "baseline_time": "2026-07-31T15:34:06.424808",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 4,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260806_152714.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260806_152714.json",
+      "mtime": "2026-08-06T15:27:14",
+      "type": "delta",
+      "baseline_file": "backtest_20260805_0903.json",
+      "baseline_time": "2026-08-05T09:03:33.637830",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 4,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260806_152736.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260806_152736.json",
+      "mtime": "2026-08-06T15:27:36",
+      "type": "delta",
+      "baseline_file": "backtest_20260805_0903.json",
+      "baseline_time": "2026-08-05T09:03:33.637830",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 4,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260806_153250.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260806_153250.json",
+      "mtime": "2026-08-06T15:32:50",
+      "type": "delta",
+      "baseline_file": "backtest_20260805_0903.json",
+      "baseline_time": "2026-08-05T09:03:33.637830",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 4,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260807_153457.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260807_153457.json",
+      "mtime": "2026-08-07T15:34:57",
+      "type": "delta",
+      "baseline_file": "backtest_20260805_0903.json",
+      "baseline_time": "2026-08-05T09:03:33.637830",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 4,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260810_153209.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260810_153209.json",
+      "mtime": "2026-08-10T15:32:09",
+      "type": "delta",
+      "baseline_file": "backtest_20260810_0903.json",
+      "baseline_time": "2026-08-10T09:03:14.673328",
+      "status": "DRIFT",
+      "drift_count": 1,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": [
+        {
+          "code": "600309",
+          "wr_delta": 33.3,
+          "ap_delta": 3.03
+        }
+      ]
+    },
+    {
+      "file": "delta_20260811_153018.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260811_153018.json",
+      "mtime": "2026-08-11T15:30:18",
+      "type": "delta",
+      "baseline_file": "backtest_20260810_0903.json",
+      "baseline_time": "2026-08-10T09:03:14.673328",
+      "status": "DRIFT",
+      "drift_count": 1,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": [
+        {
+          "code": "600309",
+          "wr_delta": 33.3,
+          "ap_delta": 2.93
+        }
+      ]
+    },
+    {
+      "file": "delta_20260812_092614.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260812_092614.json",
+      "mtime": "2026-08-12T09:26:14",
+      "type": "delta",
+      "baseline_file": "backtest_20260812_0905.json",
+      "baseline_time": "2026-08-12T09:05:14.254801",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260812_093308.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260812_093308.json",
+      "mtime": "2026-08-12T09:33:08",
+      "type": "delta",
+      "baseline_file": "backtest_20260812_0905.json",
+      "baseline_time": "2026-08-12T09:05:14.254801",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260812_191603.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260812_191603.json",
+      "mtime": "2026-08-12T19:16:03",
+      "type": "delta",
+      "baseline_file": "backtest_20260812_1915.json",
+      "baseline_time": "2026-08-12T19:15:23.260932",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260812_202307.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260812_202307.json",
+      "mtime": "2026-08-12T20:23:07",
+      "type": "delta",
+      "baseline_file": "backtest_20260812_2022.json",
+      "baseline_time": "2026-08-12T20:22:42.050262",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260812_205501.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260812_205501.json",
+      "mtime": "2026-08-12T20:55:01",
+      "type": "delta",
+      "baseline_file": "backtest_20260812_2031.json",
+      "baseline_time": "2026-08-12T20:31:41.932111",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260813_153012.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260813_153012.json",
+      "mtime": "2026-08-13T15:30:12",
+      "type": "delta",
+      "baseline_file": "backtest_20260813_0904.json",
+      "baseline_time": "2026-08-13T09:04:12.664470",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 1,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260814_153035.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260814_153035.json",
+      "mtime": "2026-08-14T15:30:35",
+      "type": "delta",
+      "baseline_file": "backtest_20260814_0904.json",
+      "baseline_time": "2026-08-14T09:04:14.267754",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 3,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260815_191230.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260815_191230.json",
+      "mtime": "2026-08-15T19:12:30",
+      "type": "delta",
+      "baseline_file": "backtest_20260814_0904.json",
+      "baseline_time": "2026-08-14T09:04:14.267754",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 3,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260815_191242.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260815_191242.json",
+      "mtime": "2026-08-15T19:12:42",
+      "type": "delta",
+      "baseline_file": "backtest_20260814_0904.json",
+      "baseline_time": "2026-08-14T09:04:14.267754",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 3,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260815_191619.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260815_191619.json",
+      "mtime": "2026-08-15T19:16:19",
+      "type": "delta",
+      "baseline_file": null,
+      "baseline_time": null,
+      "status": "EMPTY",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 0,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260815_191732.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260815_191732.json",
+      "mtime": "2026-08-15T19:17:32",
+      "type": "delta",
+      "baseline_file": "backtest_20260815_1915_600048.json",
+      "baseline_time": "2026-08-15T19:15:55.780766",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 1,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260817_153159.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260817_153159.json",
+      "mtime": "2026-08-17T15:31:59",
+      "type": "delta",
+      "baseline_file": "backtest_20260816_0839.json",
+      "baseline_time": "2026-08-16T08:39:28.271270",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260818_153016.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260818_153016.json",
+      "mtime": "2026-08-18T15:30:16",
+      "type": "delta",
+      "baseline_file": "backtest_20260818_0906.json",
+      "baseline_time": "2026-08-18T09:06:23.373177",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": []
+    },
+    {
+      "file": "delta_20260819_153012.json",
+      "path": "/Users/huyufeng/Documents/股票分析知识库/runtime/picks/backtest/delta_20260819_153012.json",
+      "mtime": "2026-08-19T15:30:12",
+      "type": "delta",
+      "baseline_file": "backtest_20260819_0906.json",
+      "baseline_time": "2026-08-19T09:06:44.113805",
+      "status": "OK",
+      "drift_count": 0,
+      "fail_count": 0,
+      "tested_count": 5,
+      "drifted": []
+    }
+  ]
+}

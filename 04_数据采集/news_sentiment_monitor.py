@@ -7,12 +7,53 @@
 import requests
 from bs4 import BeautifulSoup
 import json
+import os
 from datetime import datetime
 from openai import OpenAI
 
-# DeepSeek配置
-DEEPSEEK_API_KEY = ""  # Set via environment variable DEEPSEEK_API_KEY
-BASE_URL = "https://api.deepseek.com"
+# LLM 配置 (2026-08-08 P1+2 fix): MiniMax-M3 优先, DeepSeek 兜底
+# token plan 套餐 key (来自 ~/.hermes/.env), 撞 429 自动切 DeepSeek
+def _load_llm_config() -> dict:
+    """按优先级 MiniMax → DeepSeek → 空; 读 ~/.hermes/.env"""
+    from pathlib import Path
+    env_path = Path(os.path.expanduser("~/.hermes/.env"))
+    env_vars = dict(os.environ)
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            env_vars[k.strip()] = v.strip().strip('"').strip("'")
+
+    # MiniMax 优先 (2026-08-09 fix: 用户 .env 实际配置是 MINIMAX_CN_API_KEY / MINIMAX_CN_BASE_URL)
+    m_key = (
+        env_vars.get("MINIMAX_API_KEY")
+        or env_vars.get("minimax_api_key")
+        or env_vars.get("MINIMAX_CN_API_KEY")  # 国内版 key (用户真实配置)
+    )
+    m_url = (
+        env_vars.get("MINIMAX_BASE_URL")
+        or env_vars.get("MINIMAX_CN_BASE_URL")
+        or "https://api.minimaxi.com/v1"
+    )
+    m_model = env_vars.get("MINIMAX_MODEL") or "MiniMax-M3"
+    if m_key:
+        return {"api_key": m_key, "base_url": m_url, "model": m_model, "provider": "MiniMax"}
+
+    # DeepSeek 兜底
+    d_key = env_vars.get("DEEPSEEK_API_KEY")
+    d_url = env_vars.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+    if d_key:
+        return {"api_key": d_key, "base_url": d_url, "model": "deepseek-chat", "provider": "deepseek"}
+
+    # 双空: 让调用方感知
+    return {"api_key": "", "base_url": m_url, "model": m_model, "provider": "MiniMax (无 key)"}
+
+LLM = _load_llm_config()
+DEEPSEEK_API_KEY = LLM["api_key"]  # 兼容旧变量名 (语义上现在泛指当前 LLM key)
+BASE_URL = LLM["base_url"]
+MODEL_NAME = LLM["model"]
 
 def fetch_sina_finance_news():
     """抓取新浪财经头条新闻"""
@@ -93,14 +134,26 @@ def analyze_sentiment(news_list):
             """
             
             response = client.chat.completions.create(
-                model="deepseek-chat",
+                model=MODEL_NAME,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                response_format={"type": "json_object"},
-                max_tokens=300
+                max_tokens=500
             )
-            
-            analysis = json.loads(response.choices[0].message.content)
+            # 2026-08-08 P2 fix: MiniMax-M3 (同 DeepSeek) 返回带 <think>...</think> 推理段
+            # + ```json ... ``` markdown fence + 可能 JSON 不完整 (token 截断)
+            # 取消 response_format=json_object (MiniMax 不严格遵守), 用 regex 抽 JSON
+            content = response.choices[0].message.content or ""
+            # strip <think>...</think>
+            if "<think>" in content:
+                end = content.find("</think>")
+                if end != -1:
+                    content = content[end + len("</think>"):].strip()
+            # 找最大 {} 块
+            import re
+            m = re.search(r'\{[\s\S]*\}', content)
+            if not m:
+                raise json.JSONDecodeError(f"No JSON in response: {content[:200]}", content, 0)
+            analysis = json.loads(m.group(0))
             news.update(analysis)
             results.append(news)
             
