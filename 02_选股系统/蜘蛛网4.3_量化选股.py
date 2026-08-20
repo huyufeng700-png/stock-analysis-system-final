@@ -23,7 +23,7 @@ _KB_ROOT = Path(__file__).resolve().parents[1]
 _STRATEGY_DIR = _KB_ROOT / "01_策略引擎"
 if str(_STRATEGY_DIR) not in sys.path:
     sys.path.insert(0, str(_STRATEGY_DIR))
-from 九条经验规则 import NineRuleEngine
+from 九条经验规则 import NineRuleEngine, build_market_regime
 
 OUTPUT_DIR = str(_KB_ROOT / "runtime" / "picks") + "/"
 KLINE_POOL = FallbackPool()
@@ -35,12 +35,12 @@ _NINE_ENGINE = NineRuleEngine()
 # 去掉重复打分，提升信号一致性和可回测性。
 
 _UNIFIED_WEIGHTS = {
-    'trend': 1.0,
-    'macd': 1.2,
+    'trend': 1.2,
+    'macd': 1.0,
     'rsi': 0.8,
     'vol_ratio': 1.0,
     'momentum': 0.8,
-    'nine_rules': 1.1,
+    'nine_rules': 0.9,
     'market_regime': 1.0,
     'money_flow': 0.7,
     'sector_rotation': 0.7,
@@ -117,28 +117,26 @@ def score_unified(stock: dict, df: pd.DataFrame, market_regime: dict, money_flow
     cnt_in_top5 = int(stock.get('cnt_in_top5') or 0)
     days_in_top5 = int(stock.get('days_in_top5') or 0)
 
-    # ---------- 加权总分（归一到 0-10） ----------
+    # ---------- 加权总分（0-10） ----------
+    # 宽松版：中性/缺数据给 0，只对明显负面信号扣分，避免 0 命中
     parts = {
-        'trend': 2.0 if trend_up else -1.0,
-        'macd': 2.0 if macd_bullish else -1.0,
-        'rsi': 1.0 if rsi_ok else (-1.0 if rsi > 75 or rsi < 30 else 0.0),
-        'vol_ratio': 1.0 if vol_ratio > 1.3 else (-1.0 if vol_ratio < 1.0 else 0.0),
-        'momentum': 1.0 if stock.get('change_pct', 0) is not None and 1 <= float(stock.get('change_pct') or 0) <= 6 else 0.0,
-        'nine_rules': _safe_num(nine_total / 100 * 2.5, 0.0),
+        'trend': 1.0 if trend_up else -0.5,
+        'macd': 1.0 if macd_bullish else -0.5,
+        'rsi': 0.5 if rsi_ok else (-0.5 if rsi > 75 or rsi < 30 else 0.0),
+        'vol_ratio': 0.5 if vol_ratio > 1.3 else (-0.5 if vol_ratio < 1.0 else 0.0),
+        'momentum': 0.5 if 1 <= float(stock.get('change_pct') or 0) <= 6 else 0.0,
+        'nine_rules': _safe_num(nine_total / 100 * 1.5, 0.0),
         'market_regime': regime_adj,
-        'money_flow': 1.0 if flow > 0 else (-1.0 if flow < 0 else 0.0),
-        'sector_rotation': -0.5 if sector in ('银行', '电力') and cnt_in_top5 >= 3 else 0.0,
-        'history': -0.5 if days_in_top5 >= 3 else 0.0,
+        'money_flow': 0.5 if flow > 0 else (-0.5 if flow < 0 else 0.0),
+        'sector_rotation': -0.3 if sector in ('银行', '电力') and cnt_in_top5 >= 3 else 0.0,
+        'history': -0.3 if days_in_top5 >= 3 else 0.0,
     }
-
-    weighted = 0.0
-    weight_sum = 0.0
+    raw = 0.0
     for key, val in parts.items():
         w = _UNIFIED_WEIGHTS.get(key, 1.0)
-        weighted += val * w
-        weight_sum += w
-    score = weighted / weight_sum if weight_sum > 0 else 0.0
-    score = max(0.0, min(10.0, score + 2.5))
+        raw += val * w
+    # raw 理论范围约 -6 ~ +6，映射到 0-10
+    score = max(0.0, min(10.0, (raw + 6.0) / 12.0 * 10.0))
 
     # ---------- 信号 ----------
     if score >= 7.5 and ma_bull:
@@ -523,7 +521,7 @@ def screen_stocks():
 # ==================== 回测验证 ====================
 
 def backtest(stock_code, days=90, *, atr_sl_mult=2.0, atr_tp_mult=3.0, rsi_min=30, rsi_max=70, require_vol_ratio=True, use_trailing_stop=True):
-    """单股票回测（90天），使用统一评分引擎作为入场信号"""
+    """单股票回测（90天），使用简化信号（趋势+MACD+RSI+量能），避免嵌套统一引擎导致 O(n^2)"""
     market = 'sh' if stock_code.startswith('6') else 'sz'
     df = fetch_sina_kline(f"{market}{stock_code}", 240, days + 60)
     if df is None or len(df) < 60:
@@ -544,24 +542,15 @@ def backtest(stock_code, days=90, *, atr_sl_mult=2.0, atr_tp_mult=3.0, rsi_min=3
         prev = df.iloc[i-1]
         
         if position == 0:
-            # 用统一评分引擎判断入场
+            # 简化入场信号：趋势 + MACD + RSI + 量能（不回调查统一引擎）
+            trend_ok = row['close'] > row['ema20']
+            macd_ok = (row['dif'] > row['dea'] and prev['dif'] <= prev['dea']) or row['macd'] > 0
+            rsi_ok = rsi_min < row['rsi'] < rsi_max
             vol_ratio = row.get('vol_ratio') if pd.notna(row.get('vol_ratio')) else 1.0
-            stock_snapshot = {
-                'code': stock_code,
-                'name': stock_code,
-                'price': row['close'],
-                'change_pct': (row['close'] - prev['close']) / prev['close'] * 100 if prev['close'] > 0 else 0,
-                'turnover': 0,
-                'sector': '其他',
-                'cnt_in_top5': 0,
-                'days_in_top5': 0,
-            }
-            unified = score_unified(stock_snapshot, df.iloc[:i+1], {'filter_mode': 'normal', 'score_adj': 0}, {})
-            if not unified:
-                continue
-            entry_signal = unified.get('nine_signal', 'HOLD') == 'BUY' and unified.get('score', 0) >= 6.0
+            vol_ok = (not require_vol_ratio) or (vol_ratio > 1.2)
             
-            if entry_signal:
+            buy = trend_ok and macd_ok and rsi_ok and vol_ok
+            if buy:
                 position = 1
                 entry_price = row['close']
                 entry_idx = i
