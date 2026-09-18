@@ -25,7 +25,18 @@ if str(_STRATEGY_DIR) not in sys.path:
     sys.path.insert(0, str(_STRATEGY_DIR))
 from 九条经验规则 import NineRuleEngine, build_market_regime
 
-OUTPUT_DIR = str(_KB_ROOT / "runtime" / "picks") + "/"
+# ── 替身模式桥接（LIUYAO_MOCK=1）──────────────────────
+try:
+    from mock_bridge import is_on as _mock_on, mf as _mock_mf, output_dir as _mock_out
+except Exception:
+    _mock_on = lambda: False
+    _mock_mf = lambda: None
+    def _mock_out(*p):
+        return str(_KB_ROOT / "runtime" / "/".join(p)) + "/"
+
+# 输出目录：替身模式下自动隔离到 runtime/mock/picks/，**绝不污染生产**
+OUTPUT_DIR = _mock_out("picks") if _mock_on() else str(_KB_ROOT / "runtime" / "picks") + "/"
+os.makedirs(OUTPUT_DIR, exist_ok=True)   # 替身子目录首次运行可能不存在
 KLINE_POOL = FallbackPool()
 _NINE_ENGINE = NineRuleEngine()
 
@@ -42,9 +53,9 @@ _UNIFIED_WEIGHTS = {
     'momentum': 0.8,
     'nine_rules': 0.9,
     'market_regime': 1.0,
-    'money_flow': 0.7,
+    'money_flow': 0.9,
     'sector_rotation': 0.7,
-    'history': 0.6,
+    'history': 0.8,
 }
 
 
@@ -110,7 +121,11 @@ def score_unified(stock: dict, df: pd.DataFrame, market_regime: dict, money_flow
     regime_adj = _safe_num(regime.get('score_adj'), 0.0)
 
     # ---------- 资金流 ----------
-    flow = _safe_num(money_flow.get(code), 0.0)
+    mf_val = money_flow.get(code)
+    if isinstance(mf_val, list) and mf_val:
+        flow = _safe_num(mf_val[-1], 0.0)
+    else:
+        flow = _safe_num(mf_val, 0.0)
 
     # ---------- 板块/历史 ----------
     sector = stock.get('sector') or '其他'
@@ -122,14 +137,14 @@ def score_unified(stock: dict, df: pd.DataFrame, market_regime: dict, money_flow
     parts = {
         'trend': 1.0 if trend_up else -0.5,
         'macd': 1.0 if macd_bullish else -0.5,
-        'rsi': 0.5 if rsi_ok else (-0.5 if rsi > 75 or rsi < 30 else 0.0),
-        'vol_ratio': 0.5 if vol_ratio > 1.3 else (-0.5 if vol_ratio < 1.0 else 0.0),
+        'rsi': 0.5 if rsi_ok else (-1.0 if rsi > 72 or rsi < 28 else 0.0),
+        'vol_ratio': 0.5 if vol_ratio > 1.3 else (-0.8 if vol_ratio < 0.9 else 0.0),
         'momentum': 0.5 if 1 <= float(stock.get('change_pct') or 0) <= 6 else 0.0,
         'nine_rules': _safe_num(nine_total / 100 * 1.5, 0.0),
         'market_regime': regime_adj,
         'money_flow': 0.5 if flow > 0 else (-0.5 if flow < 0 else 0.0),
         'sector_rotation': -0.3 if sector in ('银行', '电力') and cnt_in_top5 >= 3 else 0.0,
-        'history': -0.3 if days_in_top5 >= 3 else 0.0,
+        'history': -0.5 if days_in_top5 >= 3 else 0.0,
     }
     raw = 0.0
     for key, val in parts.items():
@@ -139,7 +154,7 @@ def score_unified(stock: dict, df: pd.DataFrame, market_regime: dict, money_flow
     score = max(0.0, min(10.0, (raw + 6.0) / 12.0 * 10.0))
 
     # ---------- 信号 ----------
-    if score >= 7.5 and ma_bull:
+    if score >= 7.2 and ma_bull:
         signal = 'BUY'
     elif score >= 6.0:
         signal = 'BUY'
@@ -178,24 +193,33 @@ def score_unified(stock: dict, df: pd.DataFrame, market_regime: dict, money_flow
 # ==================== P0-013 辅助: 板块分类 + 历史推荐聚合 ====================
 # 复用 scripts/sector_concentration.py 已有逻辑,避免双维护
 
-def fetch_eastmoney_flow(codes):
-    """东方财富资金流向：返回 {code: main_net_inflow}，失败降级为{}"""
+def fetch_eastmoney_flow(codes, days=1):
+    """东方财富资金流向：返回 {code: [main_net_inflow_day1, ...]}，失败降级为{}"""
     out = {}
     if not codes:
         return out
+    if _mock_on():
+        m = _mock_mf()
+        for mkt, code in codes[:20]:
+            out[code] = [round(m._signed("flow", code) * 5e7, 2)]
+        return out
+    lmt = max(1, int(days))
     for mkt, code in codes[:20]:
         secid = f"{'0' if mkt=='sz' else '1'}.{code}"
-        u = f"https://push2.eastmoney.com/api/qt/stock/fflow/daykline/get?secid={secid}&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57&lmt=1"
+        u = f"https://push2.eastmoney.com/api/qt/stock/fflow/daykline/get?secid={secid}&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57&lmt={lmt}"
         try:
             req = urllib.request.Request(u, headers={'User-Agent':'Mozilla/5.0'})
             with urllib.request.urlopen(req, timeout=10) as resp:
                 raw = json.loads(resp.read().decode())
             klines = (((raw or {}).get('data') or {}).get('klines') or [])
-            if klines:
-                parts = klines[-1].split(',')
+            vals = []
+            for k in klines[-lmt:]:
+                parts = k.split(',')
                 # 字段顺序: date,主力净流入,小单净流入,中单净流入,大单净流入,超大单净流入,收盘价
                 main_net = float(parts[1]) if len(parts) > 1 else 0.0
-                out[code] = main_net
+                vals.append(main_net)
+            if vals:
+                out[code] = vals
         except Exception:
             pass
     return out
@@ -267,6 +291,20 @@ def _load_top5_history(days: int = 10) -> dict:
 
 def fetch_tencent_spot(codes_with_market):
     """腾讯证券实时行情"""
+    if _mock_on():
+        m = _mock_mf()
+        out = []
+        for _mkt, c in codes_with_market:
+            q = m.mock_realtime(c)
+            out.append({
+                'code': c, 'name': q['name'], 'price': q['price'],
+                'change_pct': q['change_pct'],
+                # 注意：本函数的 turnover 是「成交额（万元）」（腾讯字段37），
+                # 不是换手率——下游过滤条件为 > 5000
+                'turnover': round(m._unit("amt", c) * 795000 + 5000, 2),
+                'amplitude': q['amplitude'],
+            })
+        return out
     codes = [f"{m}{c}" for m, c in codes_with_market]
     all_spots = []
     for i in range(0, len(codes), 50):
@@ -303,6 +341,12 @@ def fetch_tencent_spot(codes_with_market):
 
 def fetch_sina_kline(code, scale=240, datalen=60):
     """K线数据：统一走 fallback_pool（三源：新浪 → 腾讯 → 东财 push2his）。"""
+    if _mock_on():
+        df = pd.DataFrame(_mock_mf().mock_kline(code, datalen))
+        for col in ['open', 'close', 'high', 'low', 'volume']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        return df
     rows = KLINE_POOL.get_kline(code, scale=scale, datalen=datalen)
     if rows:
         df = pd.DataFrame(rows)
@@ -400,6 +444,7 @@ def screen_stocks():
                 blacklist_codes = set(bl.get('codes', []))
             if blacklist_codes:
                 print(f"   🚫 回测黑名单: {len(blacklist_codes)} 只")
+            base = [s for s in base if s['code'] not in blacklist_codes]
         except Exception:
             pass
     
@@ -440,9 +485,9 @@ def screen_stocks():
     # 资金流过滤：东方财富主力净流入（当前网络异常降级为空）
     money_flow = {}
     try:
-        money_flow = fetch_eastmoney_flow(stocks)
+        money_flow = fetch_eastmoney_flow(stocks, days=3)
         if money_flow:
-            print(f"   💰 主力净流入样本: {sum(1 for v in money_flow.values() if v and v > 0)}/{len(money_flow)} 正流入")
+            print(f"   💰 主力净流入样本: {sum(1 for v in money_flow.values() if v and any(x > 0 for x in v))}/{len(money_flow)} 3日内有正流入")
         else:
             print(f"   ⚠️ 资金流数据空（网络/接口异常），跳过资金流过滤")
     except Exception as e:
@@ -489,19 +534,31 @@ def screen_stocks():
         stop_loss = unified['stop_loss']
         take_profit = unified['take_profit']
 
+        # ===== 九条经验信号一致性过滤 =====
+        nine_signal = unified.get('nine_signal')
+        if signal == 'BUY':
+            if nine_signal == 'SELL':
+                continue
+            elif nine_signal == 'HOLD':
+                score = max(0.0, score - 0.5)
+
+        # ===== 北向/主力连续3日减持硬过滤 =====
+        mf_series = money_flow.get(code) if isinstance(money_flow.get(code), list) else []
+        if len(mf_series) >= 3 and all(v < 0 for v in mf_series[-3:]):
+            continue
+
         # 熊市/震荡过滤：只保留高评分 + 高盈亏比
         if market_regime.get('filter_mode') == 'defensive':
             if score < 6.5 or rr < 1.3:
                 continue
 
-        if score >= 7.0 and rr >= 1.2:
+        if score >= 7.2 and rr >= 1.2:
             results.append({
                 'code': code, 'name': stock['name'], 'price': stock['price'],
                 'change': stock['change_pct'], 'turnover': stock['turnover'] / 10000,
-                'score': score, 'stop_loss': stop_loss,
+                'score': score, 'signal': signal, 'stop_loss': stop_loss,
                 'take_profit': take_profit, 'risk_reward': rr,
-                'atr': atr, 'rsi': rsi,
-                'vol_ratio': unified['vol_ratio'],
+                'atr': atr, 'rsi': rsi, 'vol_ratio': unified['vol_ratio'],
                 'sector': stock.get('sector', '其他'),
                 'cnt_in_top5': stock.get('cnt_in_top5', 0),
                 'days_in_top5': stock.get('days_in_top5', 0),
@@ -721,8 +778,8 @@ def main():
     p0_dropped = []
     for s in stocks:
         bt = backtest_results.get(s['code'])
-        if bt and bt['win_rate'] == 0.0 and bt['avg_profit'] < 0:
-            p0_dropped.append(f"{s['code']} {s['name']} (wr=0% avg={bt['avg_profit']:+.2f}%)")
+        if bt and (bt['win_rate'] == 0.0 or bt['avg_profit'] < -5.0):
+            p0_dropped.append(f"{s['code']} {s['name']} (wr={bt['win_rate']}% avg={bt['avg_profit']:+.2f}%)")
         else:
             p0_filtered.append(s)
     if p0_dropped:

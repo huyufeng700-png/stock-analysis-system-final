@@ -37,11 +37,20 @@ SSL_CTX = ssl.create_default_context()
 SSL_CTX.check_hostname = False
 SSL_CTX.verify_mode = ssl.CERT_NONE
 
+# ── 替身模式桥接（LIUYAO_MOCK=1 → 确定性离线数据）──
+try:
+    from mock_bridge import is_on as _mock_on, mf as _mock_mf
+except Exception:  # 桥接不可用时静默走真实取数
+    _mock_on = lambda: False
+    _mock_mf = lambda: None
+
 
 # ==================== 数据获取层 ====================
 
 def fetch_realtime(code: str) -> Optional[Dict]:
     """获取腾讯财经实时数据"""
+    if _mock_on():
+        return _mock_mf().mock_realtime(code)
     prefix = 'sz' if code.startswith(('0', '3')) else 'sh'
     url = f'https://qt.gtimg.cn=q={prefix}{code}'
     try:
@@ -76,6 +85,8 @@ def fetch_kline(code: str, count: int = 20) -> Optional[List[Dict]]:
     获取日K线数据（腾讯财经）
     返回最近count天的OHLCV
     """
+    if _mock_on():
+        return _mock_mf().mock_kline(code, count)
     prefix = 'sz' if code.startswith(('0', '3')) else 'sh'
     url = f'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,,,{count},qfq'
     try:
@@ -103,6 +114,8 @@ def fetch_kline(code: str, count: int = 20) -> Optional[List[Dict]]:
 
 def fetch_index_data() -> Optional[Dict]:
     """获取上证指数数据"""
+    if _mock_on():
+        return _mock_mf().mock_index()
     try:
         with urllib.request.urlopen('https://qt.gtimg.cn=q=sh000001', timeout=5, context=SSL_CTX) as r:
             data = r.read().decode('gbk')
@@ -121,6 +134,8 @@ def fetch_index_data() -> Optional[Dict]:
 
 def fetch_bank_index() -> Optional[Dict]:
     """获取银行板块指数（881155 银行板块）"""
+    if _mock_on():
+        return _mock_mf().mock_bank_index()
     try:
         with urllib.request.urlopen('https://qt.gtimg.cn/q=sh881155', timeout=5, context=SSL_CTX) as r:
             data = r.read().decode('gbk')
@@ -139,6 +154,8 @@ def fetch_bank_index() -> Optional[Dict]:
 
 def fetch_index_series(code: str, count: int = 60):
     """拉取指数日K序列用于判断趋势/震荡。"""
+    if _mock_on():
+        return [x["close"] for x in _mock_mf().mock_kline(code, count)]
     prefix = 'sh' if code.startswith('sh') else 'sz'
     url = f'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,,,{count},qfq'
     try:
